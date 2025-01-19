@@ -143,33 +143,60 @@ if __name__ == "__main__":
         "C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"
     ]
 
-    # For each instrument, we can define a max octave count
+    # For each instrument, define a max octave count
     instrument_max_octaves = {
         "Violin": 3,
-        # Add more instruments + their max octaves as needed
-        # "Viola": 3,
-        # "Trombone": 2,
+        "Viola": 3,
+        "Cello": 3,
+        "Double Bass": 2,
+        "Harp": 3,
+        "Alto Saxophone": 3,
+        "Bass Clarinet": 3,
+        "Bassoon": 3,
+        "Clarinet": 3,
+        "English Horn": 3,
+        "Flute": 3,
+        "Oboe": 3,
+        "Piccolo": 3,
+        "Tenor Saxophone": 3,
+        "Trumpet": 3,
+        "Euphonium": 3,
+        "French Horn": 3,
+        "Trombone": 3,
+        "Tuba": 3,
     }
 
-    # Define the lowest note allowed for each instrument. 
-    # If below this, we shift the root *up* until above or equal.
+    # Define the lowest note allowed for each instrument.
     instrument_lowest_notes = {
         "Violin": "G3",
-        # "Viola": "C3",
-        # "Trombone": "E2",
-        # ... etc ...
+        "Viola": "C3",
+        "Cello": "C2",
+        "Double Bass": "E1",
+        "Harp": "C1",
+        "Alto Saxophone": "Bb3",
+        "Bass Clarinet": "Bb2",
+        "Bassoon": "Bb1",
+        "Clarinet": "E3",
+        "English Horn": "G3",
+        "Flute": "C4",
+        "Oboe": "Bb3",
+        "Piccolo": "D5",
+        "Tenor Saxophone": "Bb2",
+        "Trumpet": "F#3",
+        "Euphonium": "Bb1",
+        "French Horn": "C2",
+        "Trombone": "E2",
+        "Tuba": "D1",
     }
 
-    # Which instruments to actually process
-    all_instruments = [
-        "Violin",
-        # "Viola",
-        # "Trombone",
-        # ...
-    ]
+    # List all instruments to process
+    all_instruments = list(instrument_max_octaves.keys())
 
     # We'll start them all at the same base_start_octave
     base_start_octave = 3
+
+    # Define a default lowest note if not specified for an instrument
+    default_lowest_note = "C3"
 
     # --------------------------------------------------------------------
     # 2. Generate Scales & Collect PNG Paths
@@ -188,8 +215,8 @@ if __name__ == "__main__":
         # Determine the maximum octaves we want for this instrument
         max_octaves_for_instrument = instrument_max_octaves.get(instrument_name, 2)
 
-        # Determine the lowest allowed note (pitch in floating semitone space)
-        lowest_note_str = instrument_lowest_notes.get(instrument_name, "C3")
+        # Use instrument-specific lowest note or default
+        lowest_note_str = instrument_lowest_notes.get(instrument_name, default_lowest_note)
         lowest_note_pitch = pitch.Pitch(lowest_note_str)
         lowest_note_ps = lowest_note_pitch.ps
 
@@ -270,7 +297,7 @@ if __name__ == "__main__":
                             final_img = img.convert("RGB")
 
                         # Save final_img as PDF with the same base name
-                        pdf_path = base + '.pdf'  # Using 'base' ensures correct naming
+                        pdf_path = base + '.pdf'
                         final_img.save(pdf_path, "PDF")
                         print(f"Saved PDF: {pdf_path}")
 
