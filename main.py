@@ -82,7 +82,7 @@ def create_scale_measures(title_text, scale_object, start_octave, num_octaves):
     note_counter = 0
 
     for i, p in enumerate(all_pitches):
-        # If we're on the very last note, put it in a whole-measure
+        # If we're on the very last note, put it in a whole measure
         if i == len(all_pitches) - 1:
             if current_measure.notes:
                 measures_stream.append(current_measure)
@@ -152,13 +152,13 @@ if __name__ == "__main__":
         # "Trombone": 2,
     }
 
-    # A dictionary that defines the lowest note allowed for each instrument.
-    # If the scale's starting pitch is below this note, we bump the root up by an octave until it is above.
+    # Define the lowest note allowed for each instrument. 
+    # If below this, we shift the root *up* until above or equal.
     instrument_lowest_notes = {
         "Violin": "G3",
         # "Viola": "C3",
         # "Trombone": "E2",
-        # ... add more as needed ...
+        # ... etc ...
     }
 
     # Which instruments to actually process
@@ -169,8 +169,7 @@ if __name__ == "__main__":
         # ...
     ]
 
-    # We'll start them all at the same *base* start_octave 
-    # (but it may get shifted up if below the instrument's lowest note).
+    # We'll start them all at the same base_start_octave
     base_start_octave = 3
 
     # --------------------------------------------------------------------
@@ -190,13 +189,12 @@ if __name__ == "__main__":
         # Determine the maximum octaves we want for this instrument
         max_octaves_for_instrument = instrument_max_octaves.get(instrument_name, 2)
 
-        # Determine the lowest allowed note for this instrument
-        # If not in the dictionary, default to "C3" (adjust as you like).
+        # Determine the lowest allowed note (pitch in floating semitone space)
         lowest_note_str = instrument_lowest_notes.get(instrument_name, "C3")
         lowest_note_pitch = pitch.Pitch(lowest_note_str)
-        lowest_note_ps = lowest_note_pitch.ps  # float (MIDI-like pitch space)
+        lowest_note_ps = lowest_note_pitch.ps
 
-        # We'll collect all PNG file paths here
+        # Collect PNG file paths for later PDF assembly
         all_generated_png_paths = []
 
         # For each octave count from 1..max_octaves_for_instrument
@@ -208,15 +206,14 @@ if __name__ == "__main__":
 
             # Generate a scale (major) for each key signature
             for key_sig in all_key_signatures:
-                # First figure out how to shift the base_start_octave so it's not below the lowest note:
-                # We'll create a pitch from the key root at base_start_octave, then bump up as needed.
+                # Shift the base_start_octave up if below instrument's lowest note
                 temp_octave = base_start_octave
                 scale_root_pitch = pitch.Pitch(f"{key_sig}{temp_octave}")
                 while scale_root_pitch.ps < lowest_note_ps:
                     temp_octave += 1
                     scale_root_pitch = pitch.Pitch(f"{key_sig}{temp_octave}")
 
-                # Now use temp_octave as our starting octave
+                # Build part
                 part = stream.Part()
                 part.insert(0, layout.SystemLayout(isNew=True))
                 part.insert(0, getattr(clef, selected_clef)())
@@ -225,10 +222,9 @@ if __name__ == "__main__":
                 major_key_obj = key.Key(key_sig, 'major')
                 major_scale_obj = scale.MajorScale(key_sig)
 
-                # Create measures for ascending+descending
+                # Create measures
                 title_text = (f"{instrument_name} - {key_sig} Major - "
                               f"{octave_count} octave{'s' if octave_count>1 else ''}")
-
                 scale_measures = create_scale_measures(
                     title_text=title_text,
                     scale_object=major_scale_obj,
@@ -238,29 +234,29 @@ if __name__ == "__main__":
                 if not scale_measures:
                     continue
 
-                # Insert the key signature in the first measure
+                # Insert key signature in the first measure
                 first_m = scale_measures[0]
                 first_m.insert(0, major_key_obj)
 
-                # Build the part
+                # Append measures to part
                 for m in scale_measures:
                     part.append(m)
 
-                # Score for this single scale
+                # Create the single-scale score
                 scales_score = stream.Score([part])
 
-                # Filename
-                png_filename = f"{instrument_name}_{key_sig}_{octave_count}octaveScale.png"
+                # ---- HERE IS THE FILENAME CHANGE ----
+                # Instead of instrument/key/octave naming, just use the key name (e.g. "F#.png").
+                png_filename = f"{key_sig}.png"
                 png_path = os.path.join(octave_folder, png_filename)
 
-                # Write out to PNG via MuseScore (musicxml.png)
+                # Write to PNG
                 scales_score.write('musicxml.png', fp=png_path)
 
-                # If for any reason the PNG doesn’t exist, continue
+                # If PNG doesn’t exist (for some reason), skip
                 if not os.path.exists(png_path):
                     continue
 
-                # Collect it
                 all_generated_png_paths.append(png_path)
 
         # ----------------------------------------------------------------
@@ -270,10 +266,10 @@ if __name__ == "__main__":
             # No PNGs were generated for this instrument
             continue
 
-        # Sort them so they appear in a consistent order
+        # Sort so they appear in a consistent order
         all_generated_png_paths.sort()
 
-        # PDF layout settings
+        # Basic PDF layout
         DPI = 300
         PAGE_WIDTH = 8 * DPI      # 8.0 inches
         PAGE_HEIGHT = 11 * DPI    # 11.0 inches
@@ -289,7 +285,7 @@ if __name__ == "__main__":
         for path in all_generated_png_paths:
             try:
                 with Image.open(path) as img:
-                    # Flatten alpha if present
+                    # Flatten alpha if needed
                     if img.mode in ("RGBA", "LA") or ("transparency" in img.info):
                         background = Image.new("RGB", img.size, (255, 255, 255))
                         if img.mode in ("RGBA", "LA"):
@@ -300,20 +296,20 @@ if __name__ == "__main__":
                     else:
                         final_img = img.convert("RGB")
 
-                    # Resize if wider than usable width
+                    # Resize if too wide
                     if final_img.width > USABLE_WIDTH:
                         ratio = USABLE_WIDTH / final_img.width
                         new_width = USABLE_WIDTH
                         new_height = int(final_img.height * ratio)
                         final_img = final_img.resize(
-                            (new_width, new_height), 
+                            (new_width, new_height),
                             resample=Image.Resampling.LANCZOS
                         )
-            except Exception as e:
+            except Exception:
                 # If any error, skip
                 continue
 
-            # If it doesn't fit, start a new page
+            # If it doesn't fit on current page, start a new one
             if current_y + final_img.height > PAGE_HEIGHT - PADDING:
                 pages.append(current_page)
                 current_page = Image.new("RGB", (PAGE_WIDTH, PAGE_HEIGHT), "white")
