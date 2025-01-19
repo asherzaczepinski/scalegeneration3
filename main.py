@@ -253,11 +253,40 @@ if __name__ == "__main__":
                 # Write to PNG
                 scales_score.write('musicxml.png', fp=png_path)
 
+                print('sigmadsfsd' + png_path)
+
+                # Correctly append '-1' before the '.png' extension
+                base, ext = os.path.splitext(png_path)
+                png_path = f"{base}-1{ext}"
+
+                # Immediately create a PDF from the generated PNG with the same base name
+                try:
+                    with Image.open(png_path) as img:
+                        # Flatten alpha if needed (similar to later PDF logic)
+                        if img.mode in ("RGBA", "LA") or ("transparency" in img.info):
+                            background = Image.new("RGB", img.size, (255, 255, 255))
+                            if img.mode in ("RGBA", "LA"):
+                                background.paste(img, mask=img.split()[3])
+                            else:
+                                background.paste(img)
+                            final_img = background
+                        else:
+                            final_img = img.convert("RGB")
+                        
+                        # Save final_img as PDF with the same base name
+                        pdf_path = base + '.pdf'  # Using 'base' ensures correct naming
+                        final_img.save(pdf_path, "PDF")
+                        print(f"Saved PDF: {pdf_path}")
+
+                except Exception as e:
+                    print(f"Error converting {png_path} to PDF: {e}")
+
                 # If PNG doesn’t exist (for some reason), skip
                 if not os.path.exists(png_path):
                     continue
 
                 all_generated_png_paths.append(png_path)
+
 
         # ----------------------------------------------------------------
         # 3. Combine All PNGs for This Instrument Into One PDF
