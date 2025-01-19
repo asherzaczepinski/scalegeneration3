@@ -1,19 +1,19 @@
 import os
-import shutil  # To remove directories
+import shutil
 from music21 import (
     stream, note, key, scale, clef, layout,
     environment, expressions, duration
 )
-from PIL import Image, ImageOps
+from PIL import Image
 
 # ------------------------------------------------------------------------
-# Point music21 to MuseScore 3 (adjust paths for your system)
+# Configure music21 to find MuseScore on your system
 # ------------------------------------------------------------------------
 environment.set('musicxmlPath', '/Applications/MuseScore 3.app/Contents/MacOS/mscore')
 environment.set('musescoreDirectPNGPath', '/Applications/MuseScore 3.app/Contents/MacOS/mscore')
 
 # ------------------------------------------------------------------------
-# Enharmonic mapping: name -> (newName, octaveAdjustment)
+# Enharmonic mappings
 # ------------------------------------------------------------------------
 ENHARM_MAP = {
     "E#": ("F", 0),
@@ -23,7 +23,7 @@ ENHARM_MAP = {
 }
 
 def fix_enharmonic_spelling(n):
-    """Adjust enharmonic spelling using ENHARM_MAP if needed."""
+    """Adjust note n's pitch spelling if in ENHARM_MAP."""
     if not n.pitch:
         return
     original_name = n.pitch.name
@@ -35,53 +35,45 @@ def fix_enharmonic_spelling(n):
         n.pitch.accidental.displayStatus = True
         n.pitch.accidental.displayType = 'normal'
 
-def determine_clef_and_octave(instrument_name, part='right'):
+def determine_clef(instrument_name):
     """
-    Return a tuple (ClefName, OctaveStart) or a dict if the instrument is Piano.
+    Return a clef string (e.g. 'TrebleClef', 'BassClef', etc.)
     """
-    if instrument_name == "Piano":
-        # Return a dict for both hands
-        return {
-            "right": ("TrebleClef", 4),
-            "left": ("BassClef", 2)
-        }
-    
-    # Full instrument map
     instrument_map = {
-        "Violin":          ("TrebleClef", 3),
-        "Viola":           ("AltoClef",   3),
-        "Cello":           ("BassClef",   2),
-        "Double Bass":     ("BassClef",   1),
-        "Harp":            ("TrebleClef", 3),
-        "Alto Saxophone":  ("TrebleClef", 4),
-        "Bass Clarinet":   ("TrebleClef", 2),
-        "Bassoon":         ("BassClef",   2),
-        "Clarinet":        ("TrebleClef", 3),
-        "English Horn":    ("TrebleClef", 4),
-        "Flute":           ("TrebleClef", 4),
-        "Oboe":            ("TrebleClef", 4),
-        "Piccolo":         ("TrebleClef", 5),
-        "Tenor Saxophone": ("TrebleClef", 3),
-        "Trumpet":         ("TrebleClef", 4),
-        "Euphonium":       ("BassClef",   2),
-        "French Horn":     ("TrebleClef", 3),
-        "Trombone":        ("BassClef",   2),
-        "Tuba":            ("BassClef",   1),
+        "Violin":          "TrebleClef",
+        "Viola":           "AltoClef",
+        "Cello":           "BassClef",
+        "Double Bass":     "BassClef",
+        "Harp":            "TrebleClef",
+        "Alto Saxophone":  "TrebleClef",
+        "Bass Clarinet":   "TrebleClef",
+        "Bassoon":         "BassClef",
+        "Clarinet":        "TrebleClef",
+        "English Horn":    "TrebleClef",
+        "Flute":           "TrebleClef",
+        "Oboe":            "TrebleClef",
+        "Piccolo":         "TrebleClef",
+        "Tenor Saxophone": "TrebleClef",
+        "Trumpet":         "TrebleClef",
+        "Euphonium":       "BassClef",
+        "French Horn":     "TrebleClef",
+        "Trombone":        "BassClef",
+        "Tuba":            "BassClef",
     }
+    return instrument_map.get(instrument_name, "TrebleClef")
 
-    return instrument_map.get(instrument_name, ("TrebleClef", 4))
-
-def create_scale_measures(title_text, scale_object, octave_start, num_octaves):
+def create_scale_measures(title_text, scale_object, start_octave, num_octaves):
     """
-    Create a series of measures containing ascending and descending scales
-    for the specified scale object, starting octave, and number of octaves.
+    Create ascending + descending measures from start_octave up to (start_octave + num_octaves).
     """
     measures_stream = stream.Stream()
-    pitches_up = scale_object.getPitches(
-        f"{scale_object.tonic.name}{octave_start}",
-        f"{scale_object.tonic.name}{octave_start + num_octaves}"
-    )
-    # For descending, reverse everything except the last note (to avoid a duplicate)
+
+    # Build the pitch range, e.g. "C3" up to "C5"
+    lower_pitch = f"{scale_object.tonic.name}{start_octave}"
+    upper_pitch = f"{scale_object.tonic.name}{start_octave + num_octaves}"
+
+    pitches_up = scale_object.getPitches(lower_pitch, upper_pitch)
+    # For descending, reverse everything except the last note (avoid duplication)
     pitches_down = list(reversed(pitches_up[:-1]))
     all_pitches = pitches_up + pitches_down
 
@@ -90,11 +82,12 @@ def create_scale_measures(title_text, scale_object, octave_start, num_octaves):
     note_counter = 0
 
     for i, p in enumerate(all_pitches):
-        # If we're at the very last note, give it a whole note measure.
+        # If we're on the very last note, put it in a whole-measure
         if i == len(all_pitches) - 1:
             if current_measure.notes:
                 measures_stream.append(current_measure)
             m_whole = stream.Measure()
+            # If it's the first note in the entire piece, add the title
             if i == 0:
                 txt = expressions.TextExpression(title_text)
                 txt.placement = 'above'
@@ -108,13 +101,17 @@ def create_scale_measures(title_text, scale_object, octave_start, num_octaves):
 
         pos_in_measure = note_counter % notes_per_measure
         if pos_in_measure == 0:
+            # Start a new measure if the current is not empty
             if current_measure.notes:
                 measures_stream.append(current_measure)
             current_measure = stream.Measure()
+
+            # Title text if first note overall
             if i == 0:
                 txt = expressions.TextExpression(title_text)
                 txt.placement = 'above'
                 current_measure.insert(0, txt)
+
             n = note.Note(p)
             n.duration = duration.Duration('quarter')
             fix_enharmonic_spelling(n)
@@ -128,202 +125,195 @@ def create_scale_measures(title_text, scale_object, octave_start, num_octaves):
 
     return measures_stream
 
+
 if __name__ == "__main__":
     # --------------------------------------------------------------------
-    # 1. Generate PNG images for scales using music21 and MuseScore.
+    # 1. Setup Output & Instrument Settings
     # --------------------------------------------------------------------
-    # Base output directory.
+
+    # Base output directory
     output_folder = "/Users/az/Desktop/scalegeneration3/output"
 
-    # Remove the output folder (and its contents) each time the script runs.
+    # Remove the output folder each time
     if os.path.exists(output_folder):
         shutil.rmtree(output_folder)
     os.makedirs(output_folder, exist_ok=True)
 
-    # List all key signatures to generate
+    # Key signatures
     all_key_signatures = [
         "C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"
     ]
-    num_octaves = 3  # Number of octaves for each scale.
 
-    # Use only band/orchestra instruments (no percussion, guitars, etc.)
+    # For each instrument, we can define a max octave count
+    instrument_max_octaves = {
+        "Violin": 3,
+        # Add more instruments + their max octaves as needed
+        # "Viola": 3,
+        # "Trombone": 2,
+    }
+
+    # Which instruments to actually process
     all_instruments = [
-        # Strings
-        "Violin", 
-        # "Viola", "Cello", "Double Bass", "Harp",
-        # # Woodwinds
-        # "Flute", "Piccolo", "Oboe", "English Horn",
-        # "Clarinet", "Bass Clarinet", "Bassoon",
-        # "Alto Saxophone", "Tenor Saxophone",
-        # # Brass
-        # "French Horn", "Trumpet", "Trombone", "Euphonium", "Tuba",
-        # Optional: Uncomment "Piano" if you want it included.
-        # "Piano",
+        "Violin",
+        # "Viola",
+        # "Trombone",
+        # ...
     ]
 
+    # We'll start them all at the same start_octave
+    start_octave = 3
+
     # --------------------------------------------------------------------
-    # For each instrument, generate the scales, save PNGs, and then create
-    # one PDF containing all the PNGs for that instrument.
+    # 2. Generate Scales & Collect PNG Paths
     # --------------------------------------------------------------------
     for instrument_name in all_instruments:
-        print("=" * 60)
+        print("=" * 70)
         print(f"Processing instrument: {instrument_name}")
-        print("=" * 60)
+        print("=" * 70)
 
-        # Create folder for this instrument's outputs.
+        # Instrument output folder
         instrument_folder = os.path.join(
-            output_folder, instrument_name.replace(" ", "_")
+            output_folder,
+            instrument_name.replace(" ", "_")
         )
         os.makedirs(instrument_folder, exist_ok=True)
 
-        # Determine the clef & base octave. (Could be a dict if it's Piano.)
-        clef_octave = determine_clef_and_octave(instrument_name)
+        # Determine the clef
+        selected_clef = determine_clef(instrument_name)
+        # Determine the maximum octaves we want for this instrument
+        max_octaves_for_instrument = instrument_max_octaves.get(instrument_name, 2)
 
-        # We'll store all generated PNG paths for this instrument
-        generated_png_paths = []
+        # We'll collect all PNG file paths here
+        all_generated_png_paths = []
 
-        # A small helper to handle either a single-staff or two-staff instrument (e.g. Piano).
-        if isinstance(clef_octave, dict):
-            # Example: Piano -> {"right": ("TrebleClef", 4), "left": ("BassClef", 2)}
-            parts_to_make = clef_octave.items()
-        else:
-            # Single staff instrument
-            parts_to_make = [("single", clef_octave)]
+        # For each octave count from 1..max_octaves_for_instrument
+        for octave_count in range(1, max_octaves_for_instrument + 1):
+            # Make a subfolder like "1_octave" or "2_octaves"
+            octave_label = f"{octave_count}_octave" if octave_count == 1 else f"{octave_count}_octaves"
+            octave_folder = os.path.join(instrument_folder, octave_label)
+            os.makedirs(octave_folder, exist_ok=True)
 
-        # We'll assume each staff range is from baseOctave to baseOctave + 2 (or any range you like).
-        for staff_label, (selected_clef, base_octave) in parts_to_make:
-            # Range of octaves from base_octave to base_octave + 2.
-            min_octave = base_octave
-            max_octave = base_octave + 2
+            # Generate a scale (major) for each key signature
+            for key_sig in all_key_signatures:
+                part = stream.Part()
+                part.insert(0, layout.SystemLayout(isNew=True))
+                part.insert(0, getattr(clef, selected_clef)())
 
-            # Loop through each octave in that range
-            for octave in range(min_octave, max_octave + 1):
-                # Create a folder for each octave (optional).
-                octave_folder = os.path.join(
-                    instrument_folder, f"{staff_label}_Octave_{octave}"
+                # Create Key + scale
+                major_key_obj = key.Key(key_sig, 'major')
+                major_scale_obj = scale.MajorScale(key_sig)
+
+                # Create measures for ascending+descending
+                title_text = (f"{instrument_name} - {key_sig} Major - "
+                              f"{octave_count} octave{'s' if octave_count>1 else ''}")
+                scale_measures = create_scale_measures(
+                    title_text=title_text,
+                    scale_object=major_scale_obj,
+                    start_octave=start_octave,
+                    num_octaves=octave_count
                 )
-                os.makedirs(octave_folder, exist_ok=True)
+                if not scale_measures:
+                    continue
 
-                # Loop over all key signatures
-                for key_sig in all_key_signatures:
-                    part = stream.Part()
-                    # Insert a system layout and the proper clef.
-                    part.insert(0, layout.SystemLayout(isNew=True))
-                    part.insert(0, getattr(clef, selected_clef)())
+                # Insert the key signature in the first measure
+                first_m = scale_measures[0]
+                first_m.insert(0, major_key_obj)
 
-                    major_key_obj = key.Key(key_sig, 'major')
-                    major_scale_obj = scale.MajorScale(key_sig)
+                # Build the part
+                for m in scale_measures:
+                    part.append(m)
 
-                    scale_measures = create_scale_measures(
-                        title_text=f"{instrument_name} - {staff_label} staff - {key_sig} Major Scale",
-                        scale_object=major_scale_obj,
-                        octave_start=octave,
-                        num_octaves=num_octaves
-                    )
+                # Score for this single scale
+                scales_score = stream.Score([part])
 
-                    if not scale_measures:
+                # Filename
+                png_filename = f"{instrument_name}_{key_sig}_{octave_count}octaveScale.png"
+                png_path = os.path.join(octave_folder, png_filename)
+
+                # Write out to PNG via MuseScore (musicxml.png)
+                scales_score.write('musicxml.png', fp=png_path)
+
+                # If the direct path doesn't exist, check if there's a `-1` variant
+                if not os.path.exists(png_path):
+                    base, ext = os.path.splitext(png_path)
+                    alt_path = f"{base}-1{ext}"
+                    if os.path.exists(alt_path):
+                        print(f"Found: {alt_path} instead of {png_path}")
+                        png_path = alt_path  # Just use the alt path
+                    else:
+                        print(f"Warning: Could not find {png_path} or {alt_path}!")
                         continue
 
-                    # Insert the key signature into the first measure.
-                    first_m = scale_measures[0]
-                    first_m.insert(0, major_key_obj)
-
-                    for m in scale_measures:
-                        part.append(m)
-
-                    # Create a score for this key signature and octave.
-                    scales_score = stream.Score([part])
-                    png_filename = (
-                        f"{instrument_name}_{staff_label}_{key_sig}_Major_Scale_Octave_{octave}.png"
-                    )
-                    png_path = os.path.join(octave_folder, png_filename)
-                    
-                    # Write out the score as a PNG using MuseScore (via music21).
-                    scales_score.write('musicxml.png', fp=png_path)
-                    
-                    # MuseScore may add a suffix if a file by that name already exists.
-                    if not os.path.exists(png_path):
-                        base, ext = os.path.splitext(png_path)
-                        alt_path = f"{base}-1{ext}"
-                        if os.path.exists(alt_path):
-                            os.rename(alt_path, png_path)
-                            print(f"Renamed {alt_path} to {png_path}")
-                        else:
-                            print(f"Warning: Neither {png_path} nor {alt_path} exists!")
-                    
-                    print(f"Created PNG: {png_path}")
-                    generated_png_paths.append(png_path)
+                print(f"Created PNG: {png_path}")
+                all_generated_png_paths.append(png_path)
 
         # ----------------------------------------------------------------
-        # 2. Combine the generated PNG images for this instrument into a PDF
+        # 3. Combine All PNGs for This Instrument Into One PDF
         # ----------------------------------------------------------------
-        if not generated_png_paths:
-            print(f"No PNGs were generated for instrument: {instrument_name}")
-            continue  # Move to the next instrument
+        if not all_generated_png_paths:
+            print(f"No PNGs were generated for {instrument_name}. Skipping PDF.")
+            continue
 
-        # Sort the PNGs by path for consistent ordering (optional)
-        generated_png_paths.sort()
+        # Sort them so they appear in a consistent order
+        all_generated_png_paths.sort()
 
-        # Define page settings
-        DPI = 300  # Increase for higher resolution output.
-        PAGE_WIDTH = 8 * DPI    # e.g. 8 inches wide
-        PAGE_HEIGHT = 11 * DPI  # e.g. 11 inches tall
-        PADDING = 80            # pixels of padding on all sides
-        SPACING = 250           # space between images
+        # PDF layout settings
+        DPI = 300
+        PAGE_WIDTH = 8 * DPI      # 8.0 inches
+        PAGE_HEIGHT = 11 * DPI    # 11.0 inches
+        PADDING = 80
+        SPACING = 250
 
         USABLE_WIDTH = PAGE_WIDTH - 2 * PADDING
-        USABLE_HEIGHT = PAGE_HEIGHT - 2 * PADDING
 
-        # Load PNG images (with white background if needed)
-        scale_images = []
-        for path in generated_png_paths:
+        pages = []
+        current_page = Image.new("RGB", (PAGE_WIDTH, PAGE_HEIGHT), "white")
+        current_y = PADDING
+
+        for path in all_generated_png_paths:
             try:
                 with Image.open(path) as img:
-                    # If the image has transparency, paste it on a white background
+                    # If there's alpha, flatten onto white
                     if img.mode in ("RGBA", "LA") or ("transparency" in img.info):
                         background = Image.new("RGB", img.size, (255, 255, 255))
                         if img.mode in ("RGBA", "LA"):
                             background.paste(img, mask=img.split()[3])
                         else:
                             background.paste(img)
-                        scale_images.append(background.copy())
+                        final_img = background
                     else:
-                        scale_images.append(img.convert("RGB").copy())
+                        final_img = img.convert("RGB")
+
+                    # Resize if needed
+                    if final_img.width > USABLE_WIDTH:
+                        ratio = USABLE_WIDTH / final_img.width
+                        new_width = USABLE_WIDTH
+                        new_height = int(final_img.height * ratio)
+                        final_img = final_img.resize(
+                            (new_width, new_height), 
+                            resample=Image.Resampling.LANCZOS
+                        )
             except Exception as e:
                 print(f"Error opening image {path}: {e}")
+                continue
 
-        # Combine images into pages
-        pages = []
-        current_page = Image.new("RGB", (PAGE_WIDTH, PAGE_HEIGHT), "white")
-        current_y = PADDING  # Starting y-position
-
-        for img in scale_images:
-            # Resize image if it exceeds the usable width
-            if img.width > USABLE_WIDTH:
-                ratio = USABLE_WIDTH / img.width
-                new_width = USABLE_WIDTH
-                new_height = int(img.height * ratio)
-                img = img.resize((new_width, new_height), resample=Image.Resampling.LANCZOS)
-            
-            # If the image doesn't fit on the current page, start a new page
-            if current_y + img.height > PAGE_HEIGHT - PADDING:
+            # If doesn't fit, new page
+            if current_y + final_img.height > PAGE_HEIGHT - PADDING:
                 pages.append(current_page)
                 current_page = Image.new("RGB", (PAGE_WIDTH, PAGE_HEIGHT), "white")
                 current_y = PADDING
-            
-            # Paste the image on the page
-            current_page.paste(img, (PADDING, current_y))
-            current_y += img.height + SPACING
 
-        # Append the final page if it has content
+            current_page.paste(final_img, (PADDING, current_y))
+            current_y += final_img.height + SPACING
+
+        # Add the last page if it has any content
         if current_y > PADDING:
             pages.append(current_page)
 
-        # Save the combined pages into a multipage PDF for this instrument
-        combined_pdf_path = os.path.join(
-            instrument_folder,
-            f"{instrument_name.replace(' ', '_')}_combined.pdf"
-        )
+        # Save final PDF
+        pdf_filename = f"{instrument_name.replace(' ', '_')}_AllOctaves.pdf"
+        combined_pdf_path = os.path.join(instrument_folder, pdf_filename)
+
         if pages:
             pages[0].save(
                 combined_pdf_path,
@@ -332,6 +322,6 @@ if __name__ == "__main__":
                 append_images=pages[1:],
                 resolution=DPI
             )
-            print(f"Combined multipage PDF created at: {combined_pdf_path}")
+            print(f"PDF created at: {combined_pdf_path}")
         else:
-            print(f"No pages were created for {instrument_name}.")
+            print("No pages to save into PDF.")
