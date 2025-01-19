@@ -2,7 +2,7 @@ import os
 import shutil
 from music21 import (
     stream, note, key, scale, clef, layout,
-    environment, expressions, duration
+    environment, expressions, duration, pitch
 )
 from PIL import Image
 
@@ -152,6 +152,15 @@ if __name__ == "__main__":
         # "Trombone": 2,
     }
 
+    # A dictionary that defines the lowest note allowed for each instrument.
+    # If the scale's starting pitch is below this note, we bump the root up by an octave until it is above.
+    instrument_lowest_notes = {
+        "Violin": "G3",
+        # "Viola": "C3",
+        # "Trombone": "E2",
+        # ... add more as needed ...
+    }
+
     # Which instruments to actually process
     all_instruments = [
         "Violin",
@@ -160,16 +169,14 @@ if __name__ == "__main__":
         # ...
     ]
 
-    # We'll start them all at the same start_octave
-    start_octave = 3
+    # We'll start them all at the same *base* start_octave 
+    # (but it may get shifted up if below the instrument's lowest note).
+    base_start_octave = 3
 
     # --------------------------------------------------------------------
     # 2. Generate Scales & Collect PNG Paths
     # --------------------------------------------------------------------
     for instrument_name in all_instruments:
-        print("=" * 70)
-        print(f"Processing instrument: {instrument_name}")
-        print("=" * 70)
 
         # Instrument output folder
         instrument_folder = os.path.join(
@@ -183,6 +190,12 @@ if __name__ == "__main__":
         # Determine the maximum octaves we want for this instrument
         max_octaves_for_instrument = instrument_max_octaves.get(instrument_name, 2)
 
+        # Determine the lowest allowed note for this instrument
+        # If not in the dictionary, default to "C3" (adjust as you like).
+        lowest_note_str = instrument_lowest_notes.get(instrument_name, "C3")
+        lowest_note_pitch = pitch.Pitch(lowest_note_str)
+        lowest_note_ps = lowest_note_pitch.ps  # float (MIDI-like pitch space)
+
         # We'll collect all PNG file paths here
         all_generated_png_paths = []
 
@@ -195,6 +208,15 @@ if __name__ == "__main__":
 
             # Generate a scale (major) for each key signature
             for key_sig in all_key_signatures:
+                # First figure out how to shift the base_start_octave so it's not below the lowest note:
+                # We'll create a pitch from the key root at base_start_octave, then bump up as needed.
+                temp_octave = base_start_octave
+                scale_root_pitch = pitch.Pitch(f"{key_sig}{temp_octave}")
+                while scale_root_pitch.ps < lowest_note_ps:
+                    temp_octave += 1
+                    scale_root_pitch = pitch.Pitch(f"{key_sig}{temp_octave}")
+
+                # Now use temp_octave as our starting octave
                 part = stream.Part()
                 part.insert(0, layout.SystemLayout(isNew=True))
                 part.insert(0, getattr(clef, selected_clef)())
@@ -206,10 +228,11 @@ if __name__ == "__main__":
                 # Create measures for ascending+descending
                 title_text = (f"{instrument_name} - {key_sig} Major - "
                               f"{octave_count} octave{'s' if octave_count>1 else ''}")
+
                 scale_measures = create_scale_measures(
                     title_text=title_text,
                     scale_object=major_scale_obj,
-                    start_octave=start_octave,
+                    start_octave=temp_octave,
                     num_octaves=octave_count
                 )
                 if not scale_measures:
@@ -233,25 +256,18 @@ if __name__ == "__main__":
                 # Write out to PNG via MuseScore (musicxml.png)
                 scales_score.write('musicxml.png', fp=png_path)
 
-                # If the direct path doesn't exist, check if there's a `-1` variant
+                # If for any reason the PNG doesn’t exist, continue
                 if not os.path.exists(png_path):
-                    base, ext = os.path.splitext(png_path)
-                    alt_path = f"{base}-1{ext}"
-                    if os.path.exists(alt_path):
-                        print(f"Found: {alt_path} instead of {png_path}")
-                        png_path = alt_path  # Just use the alt path
-                    else:
-                        print(f"Warning: Could not find {png_path} or {alt_path}!")
-                        continue
+                    continue
 
-                print(f"Created PNG: {png_path}")
+                # Collect it
                 all_generated_png_paths.append(png_path)
 
         # ----------------------------------------------------------------
         # 3. Combine All PNGs for This Instrument Into One PDF
         # ----------------------------------------------------------------
         if not all_generated_png_paths:
-            print(f"No PNGs were generated for {instrument_name}. Skipping PDF.")
+            # No PNGs were generated for this instrument
             continue
 
         # Sort them so they appear in a consistent order
@@ -273,7 +289,7 @@ if __name__ == "__main__":
         for path in all_generated_png_paths:
             try:
                 with Image.open(path) as img:
-                    # If there's alpha, flatten onto white
+                    # Flatten alpha if present
                     if img.mode in ("RGBA", "LA") or ("transparency" in img.info):
                         background = Image.new("RGB", img.size, (255, 255, 255))
                         if img.mode in ("RGBA", "LA"):
@@ -284,7 +300,7 @@ if __name__ == "__main__":
                     else:
                         final_img = img.convert("RGB")
 
-                    # Resize if needed
+                    # Resize if wider than usable width
                     if final_img.width > USABLE_WIDTH:
                         ratio = USABLE_WIDTH / final_img.width
                         new_width = USABLE_WIDTH
@@ -294,10 +310,10 @@ if __name__ == "__main__":
                             resample=Image.Resampling.LANCZOS
                         )
             except Exception as e:
-                print(f"Error opening image {path}: {e}")
+                # If any error, skip
                 continue
 
-            # If doesn't fit, new page
+            # If it doesn't fit, start a new page
             if current_y + final_img.height > PAGE_HEIGHT - PADDING:
                 pages.append(current_page)
                 current_page = Image.new("RGB", (PAGE_WIDTH, PAGE_HEIGHT), "white")
@@ -311,10 +327,9 @@ if __name__ == "__main__":
             pages.append(current_page)
 
         # Save final PDF
-        pdf_filename = f"{instrument_name.replace(' ', '_')}_AllOctaves.pdf"
-        combined_pdf_path = os.path.join(instrument_folder, pdf_filename)
-
         if pages:
+            pdf_filename = f"{instrument_name.replace(' ', '_')}_AllOctaves.pdf"
+            combined_pdf_path = os.path.join(instrument_folder, pdf_filename)
             pages[0].save(
                 combined_pdf_path,
                 "PDF",
@@ -322,6 +337,3 @@ if __name__ == "__main__":
                 append_images=pages[1:],
                 resolution=DPI
             )
-            print(f"PDF created at: {combined_pdf_path}")
-        else:
-            print("No pages to save into PDF.")
