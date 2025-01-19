@@ -125,7 +125,6 @@ def create_scale_measures(title_text, scale_object, start_octave, num_octaves):
 
     return measures_stream
 
-
 if __name__ == "__main__":
     # --------------------------------------------------------------------
     # 1. Setup Output & Instrument Settings
@@ -194,17 +193,17 @@ if __name__ == "__main__":
         lowest_note_pitch = pitch.Pitch(lowest_note_str)
         lowest_note_ps = lowest_note_pitch.ps
 
-        # Collect PNG file paths for later PDF assembly
-        all_generated_png_paths = []
-
         # For each octave count from 1..max_octaves_for_instrument
         for octave_count in range(1, max_octaves_for_instrument + 1):
+            # Create a list to collect PNGs for this octave
+            octave_png_paths = []
+
             # Make a subfolder like "1_octave" or "2_octaves"
             octave_label = f"{octave_count}_octave" if octave_count == 1 else f"{octave_count}_octaves"
             octave_folder = os.path.join(instrument_folder, octave_label)
             os.makedirs(octave_folder, exist_ok=True)
 
-            # Generate a scale (major) for each key signature
+            # For each key signature, generate the scale PNG and PDF conversion
             for key_sig in all_key_signatures:
                 # Shift the base_start_octave up if below instrument's lowest note
                 temp_octave = base_start_octave
@@ -245,24 +244,21 @@ if __name__ == "__main__":
                 # Create the single-scale score
                 scales_score = stream.Score([part])
 
-                # ---- HERE IS THE FILENAME CHANGE ----
-                # Instead of instrument/key/octave naming, just use the key name (e.g. "F#.png").
+                # Generate filename based solely on key signature
                 png_filename = f"{key_sig}.png"
                 png_path = os.path.join(octave_folder, png_filename)
 
                 # Write to PNG
                 scales_score.write('musicxml.png', fp=png_path)
 
-                print('sigmadsfsd' + png_path)
-
-                # Correctly append '-1' before the '.png' extension
+                # Correct the filename due to MuseScore's naming (appends "-1" before extension)
                 base, ext = os.path.splitext(png_path)
-                png_path = f"{base}-1{ext}"
+                generated_png_path = f"{base}-1{ext}"
 
                 # Immediately create a PDF from the generated PNG with the same base name
                 try:
-                    with Image.open(png_path) as img:
-                        # Flatten alpha if needed (similar to later PDF logic)
+                    with Image.open(generated_png_path) as img:
+                        # Flatten alpha if needed
                         if img.mode in ("RGBA", "LA") or ("transparency" in img.info):
                             background = Image.new("RGB", img.size, (255, 255, 255))
                             if img.mode in ("RGBA", "LA"):
@@ -272,93 +268,94 @@ if __name__ == "__main__":
                             final_img = background
                         else:
                             final_img = img.convert("RGB")
-                        
+
                         # Save final_img as PDF with the same base name
                         pdf_path = base + '.pdf'  # Using 'base' ensures correct naming
                         final_img.save(pdf_path, "PDF")
                         print(f"Saved PDF: {pdf_path}")
 
                 except Exception as e:
-                    print(f"Error converting {png_path} to PDF: {e}")
+                    print(f"Error converting {generated_png_path} to PDF: {e}")
 
-                # If PNG doesn’t exist (for some reason), skip
-                if not os.path.exists(png_path):
+                # If PNG doesn’t exist, skip adding it
+                if not os.path.exists(generated_png_path):
                     continue
 
-                all_generated_png_paths.append(png_path)
+                # Collect the path for later combination into a single PDF for this octave
+                octave_png_paths.append(generated_png_path)
 
-
-        # ----------------------------------------------------------------
-        # 3. Combine All PNGs for This Instrument Into One PDF
-        # ----------------------------------------------------------------
-        if not all_generated_png_paths:
-            # No PNGs were generated for this instrument
-            continue
-
-        # Sort so they appear in a consistent order
-        all_generated_png_paths.sort()
-
-        # Basic PDF layout
-        DPI = 300
-        PAGE_WIDTH = 8 * DPI      # 8.0 inches
-        PAGE_HEIGHT = 11 * DPI    # 11.0 inches
-        PADDING = 80
-        SPACING = 250
-
-        USABLE_WIDTH = PAGE_WIDTH - 2 * PADDING
-
-        pages = []
-        current_page = Image.new("RGB", (PAGE_WIDTH, PAGE_HEIGHT), "white")
-        current_y = PADDING
-
-        for path in all_generated_png_paths:
-            try:
-                with Image.open(path) as img:
-                    # Flatten alpha if needed
-                    if img.mode in ("RGBA", "LA") or ("transparency" in img.info):
-                        background = Image.new("RGB", img.size, (255, 255, 255))
-                        if img.mode in ("RGBA", "LA"):
-                            background.paste(img, mask=img.split()[3])
-                        else:
-                            background.paste(img)
-                        final_img = background
-                    else:
-                        final_img = img.convert("RGB")
-
-                    # Resize if too wide
-                    if final_img.width > USABLE_WIDTH:
-                        ratio = USABLE_WIDTH / final_img.width
-                        new_width = USABLE_WIDTH
-                        new_height = int(final_img.height * ratio)
-                        final_img = final_img.resize(
-                            (new_width, new_height),
-                            resample=Image.Resampling.LANCZOS
-                        )
-            except Exception:
-                # If any error, skip
+            # ----------------------------------------------------------------
+            # 3. Combine All PNGs for This Octave Into One PDF
+            # ----------------------------------------------------------------
+            if not octave_png_paths:
+                # No PNGs were generated for this octave
                 continue
 
-            # If it doesn't fit on current page, start a new one
-            if current_y + final_img.height > PAGE_HEIGHT - PADDING:
+            # Sort so they appear in a consistent order
+            octave_png_paths.sort()
+
+            # Basic PDF layout settings
+            DPI = 300
+            PAGE_WIDTH = 8 * DPI      # 8.0 inches
+            PAGE_HEIGHT = 11 * DPI    # 11.0 inches
+            PADDING = 80
+            SPACING = 250
+
+            USABLE_WIDTH = PAGE_WIDTH - 2 * PADDING
+
+            pages = []
+            current_page = Image.new("RGB", (PAGE_WIDTH, PAGE_HEIGHT), "white")
+            current_y = PADDING
+
+            for path in octave_png_paths:
+                try:
+                    with Image.open(path) as img:
+                        # Flatten alpha if needed
+                        if img.mode in ("RGBA", "LA") or ("transparency" in img.info):
+                            background = Image.new("RGB", img.size, (255, 255, 255))
+                            if img.mode in ("RGBA", "LA"):
+                                background.paste(img, mask=img.split()[3])
+                            else:
+                                background.paste(img)
+                            final_img = background
+                        else:
+                            final_img = img.convert("RGB")
+
+                        # Resize if too wide
+                        if final_img.width > USABLE_WIDTH:
+                            ratio = USABLE_WIDTH / final_img.width
+                            new_width = USABLE_WIDTH
+                            new_height = int(final_img.height * ratio)
+                            final_img = final_img.resize(
+                                (new_width, new_height),
+                                resample=Image.Resampling.LANCZOS
+                            )
+                except Exception:
+                    # If any error opening the image, skip
+                    continue
+
+                # If the image doesn't fit on the current page, start a new one
+                if current_y + final_img.height > PAGE_HEIGHT - PADDING:
+                    pages.append(current_page)
+                    current_page = Image.new("RGB", (PAGE_WIDTH, PAGE_HEIGHT), "white")
+                    current_y = PADDING
+
+                current_page.paste(final_img, (PADDING, current_y))
+                current_y += final_img.height + SPACING
+
+            # Add the last page if it has any content
+            if current_y > PADDING:
                 pages.append(current_page)
-                current_page = Image.new("RGB", (PAGE_WIDTH, PAGE_HEIGHT), "white")
-                current_y = PADDING
 
-            current_page.paste(final_img, (PADDING, current_y))
-            current_y += final_img.height + SPACING
-
-        # Add the last page if it has any content
-        if current_y > PADDING:
-            pages.append(current_page)
-
-        # Save final PDF
-        if pages:
-            pdf_filename = f"{instrument_name.replace(' ', '_')}_AllOctaves.pdf"
-            combined_pdf_path = os.path.join(instrument_folder, pdf_filename)
-            pages[0].save(
-                combined_pdf_path,
-                "PDF",
-                save_all=True,
-                append_images=pages[1:],
-                resolution=DPI
-            )
+            # Save final combined PDF for this octave
+            if pages:
+                combined_pdf_filename = f"{instrument_name.replace(' ', '_')}_{octave_label}_AllScales.pdf"
+                combined_pdf_path = os.path.join(octave_folder, combined_pdf_filename)
+                pages[0].save(
+                    combined_pdf_path,
+                    "PDF",
+                    save_all=True,
+                    append_images=pages[1:],
+                    resolution=DPI
+                )
+                print(f"Combined PDF saved for {instrument_name}, {octave_label}: {combined_pdf_path}")
