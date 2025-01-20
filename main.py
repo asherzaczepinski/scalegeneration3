@@ -170,7 +170,7 @@ if __name__ == "__main__":
     instrument_lowest_notes = {
         "Violin": "G3",
         "Viola": "C3",
-        "Cello": "C2",
+        "Cello": "C1",
         "Double Bass": "E1",
         "Harp": "C1",
         "Alto Saxophone": "Bb3",
