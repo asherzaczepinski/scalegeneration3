@@ -4,7 +4,7 @@ from music21 import (
     stream, note, key, scale, clef, layout,
     environment, expressions, duration, pitch
 )
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 
 # ------------------------------------------------------------------------
 # Configure music21 to find MuseScore on your system
@@ -111,12 +111,16 @@ def create_scale_measures(title_text, scale_object, start_octave, num_octaves):
     return measures_stream
 
 if __name__ == "__main__":
+    # Setup output directory
     output_folder = "/Users/az/Desktop/scalegeneration3/output"
     if os.path.exists(output_folder):
         shutil.rmtree(output_folder)
     os.makedirs(output_folder, exist_ok=True)
 
-    all_key_signatures = ["C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"]
+    # Circle of fifths order for major keys
+    circle_of_fifths_major = ["C", "G", "D", "A", "E", "B", "F#", "C#", "Ab", "Eb", "Bb", "F"]
+    all_key_signatures = circle_of_fifths_major
+
     instrument_settings = {
         "Violin": {
             "lowest": pitch.Pitch("G3"),
@@ -125,6 +129,13 @@ if __name__ == "__main__":
     }
     all_instruments = ["Violin"]
     base_start_octave = 3
+
+    DPI = 300
+    PAGE_WIDTH = 8 * DPI
+    PAGE_HEIGHT = 11 * DPI
+    PADDING = 80
+    SPACING = 350  # Increased spacing between images
+    USABLE_WIDTH = PAGE_WIDTH - 2 * PADDING
 
     for instrument_name in all_instruments:
         print("=" * 70)
@@ -138,12 +149,10 @@ if __name__ == "__main__":
 
         instrument_lowest = settings["lowest"]
         instrument_highest = settings["highest"]
-
         instrument_folder = os.path.join(output_folder, instrument_name.replace(" ", "_"))
         os.makedirs(instrument_folder, exist_ok=True)
 
         selected_clef = determine_clef(instrument_name)
-        all_generated_png_paths = []
 
         octave_count = 1
         previous_octave_folder = None
@@ -158,6 +167,7 @@ if __name__ == "__main__":
             os.makedirs(octave_folder, exist_ok=True)
 
             current_octave_keys = {}
+            current_octave_paths = []
 
             for key_sig in all_key_signatures:
                 major_key_obj = key.Key(key_sig, 'major')
@@ -186,8 +196,7 @@ if __name__ == "__main__":
                 part.insert(0, layout.SystemLayout(isNew=True))
                 part.insert(0, getattr(clef, selected_clef)())
 
-                title_text = (f"{instrument_name} - {key_sig} Major - "
-                              f"{octave_count} octave{'s' if octave_count>1 else ''}")
+                title_text = f"{instrument_name} - {key_sig} Major - {octave_count} octave{'s' if octave_count>1 else ''}"
                 scale_measures = create_scale_measures(
                     title_text=title_text,
                     scale_object=major_scale_obj,
@@ -209,21 +218,19 @@ if __name__ == "__main__":
                 png_path = os.path.join(octave_folder, png_filename)
                 scales_score.write('musicxml.png', fp=png_path)
 
-                # Check for alternative file ending with -1 and rename it
+                # Handle alternative naming if necessary
                 if not os.path.exists(png_path):
                     base_name, ext = os.path.splitext(png_path)
                     alt_path = f"{base_name}-1{ext}"
                     if os.path.exists(alt_path):
-                        print(f"Found alternative at {alt_path}")
-                        # Rename the file to the expected png_path
                         shutil.move(alt_path, png_path)
                     else:
                         print(f"Warning: Could not find {png_path} or {alt_path}!")
                         continue
 
                 print(f"Created PNG: {png_path}")
-                all_generated_png_paths.append(png_path)
                 current_octave_keys[key_sig] = png_path
+                current_octave_paths.append(png_path)
 
             missing_keys = set(all_key_signatures) - set(current_octave_keys.keys())
             if missing_keys:
@@ -234,16 +241,14 @@ if __name__ == "__main__":
                     break
 
                 for key_sig in missing_keys:
-                    # Use the previous octave's filename without changing it
                     prev_png_filename = f"{key_sig}_{octave_count-1}octave.png"
                     source_path = os.path.join(previous_octave_folder, prev_png_filename)
                     if os.path.exists(source_path):
-                        # Copy file to the current octave folder retaining original name
                         dest_path = os.path.join(octave_folder, prev_png_filename)
                         shutil.copy(source_path, dest_path)
                         print(f"Copied from {source_path} to {dest_path}")
-                        all_generated_png_paths.append(dest_path)
                         current_octave_keys[key_sig] = dest_path
+                        current_octave_paths.append(dest_path)
                     else:
                         print(f"Could not find source for missing scale {key_sig} from previous octave at {source_path}.")
 
@@ -259,75 +264,94 @@ if __name__ == "__main__":
                 shutil.rmtree(octave_folder)
                 break
 
+            # Sort current_octave_paths according to circle of fifths order
+            order_index = {k: i for i, k in enumerate(circle_of_fifths_major)}
+            def key_from_path(p):
+                base = os.path.basename(p)
+                for key_sig in circle_of_fifths_major:
+                    if base.startswith(key_sig + "_"):
+                        return key_sig
+                return ""
+            current_octave_paths.sort(key=lambda p: order_index.get(key_from_path(p), 999))
+
+            # Generate combined.pdf for the current octave folder
+            pages = []
+            current_page = Image.new("RGB", (PAGE_WIDTH, PAGE_HEIGHT), "white")
+            draw = ImageDraw.Draw(current_page)
+
+            # Use a larger, bold font for title on the first page
+            title_font_size = 100  # Increased title size
+            try:
+                font = ImageFont.truetype("arialbd.ttf", title_font_size)
+            except IOError:
+                try:
+                    font = ImageFont.truetype("arial.ttf", title_font_size)
+                except IOError:
+                    font = ImageFont.load_default()
+
+            title_text_main = f"{instrument_name} Scale's"
+            bbox = font.getbbox(title_text_main)
+            title_width = bbox[2] - bbox[0]
+            title_height = bbox[3] - bbox[1]
+            title_x = (PAGE_WIDTH - title_width) // 2
+            title_y = PADDING // 2
+            draw.text((title_x, title_y), title_text_main, fill="black", font=font)
+
+            # Set starting Y position after the title
+            current_y = PADDING + title_height + SPACING
+
+            for path in current_octave_paths:
+                try:
+                    with Image.open(path) as img:
+                        if img.mode in ("RGBA", "LA") or ("transparency" in img.info):
+                            background = Image.new("RGB", img.size, (255, 255, 255))
+                            if img.mode in ("RGBA", "LA"):
+                                background.paste(img, mask=img.split()[3])
+                            else:
+                                background.paste(img)
+                            final_img = background
+                        else:
+                            final_img = img.convert("RGB")
+
+                        if final_img.width > USABLE_WIDTH:
+                            ratio = USABLE_WIDTH / final_img.width
+                            new_width = int(final_img.width * ratio)
+                            new_height = int(final_img.height * ratio)
+                            final_img = final_img.resize(
+                                (new_width, new_height), 
+                                resample=Image.Resampling.LANCZOS
+                            )
+                except Exception as e:
+                    print(f"Error opening image {path}: {e}")
+                    continue
+
+                # If image doesn't fit on current page, start a new page without title
+                if current_y + final_img.height > PAGE_HEIGHT - PADDING:
+                    pages.append(current_page)
+                    current_page = Image.new("RGB", (PAGE_WIDTH, PAGE_HEIGHT), "white")
+                    draw = ImageDraw.Draw(current_page)
+                    # For new pages without title, start at top padding
+                    current_y = PADDING
+
+                current_page.paste(final_img, (PADDING, current_y))
+                current_y += final_img.height + SPACING
+
+            if current_y > PADDING:
+                pages.append(current_page)
+
+            combined_pdf_path = os.path.join(octave_folder, "combined.pdf")
+            if pages:
+                pages[0].save(
+                    combined_pdf_path,
+                    "PDF",
+                    save_all=True,
+                    append_images=pages[1:],
+                    resolution=DPI
+                )
+                print(f"PDF created at: {combined_pdf_path}")
+            else:
+                print(f"No pages to save into PDF for folder {octave_folder}.")
+
             previous_octave_folder = octave_folder
             previous_octave_keys = current_octave_keys.copy()
             octave_count += 1
-
-        if not all_generated_png_paths:
-            print(f"No PNGs were generated for {instrument_name}. Skipping PDF.")
-            continue
-
-        all_generated_png_paths.sort()
-
-        DPI = 300
-        PAGE_WIDTH = 8 * DPI
-        PAGE_HEIGHT = 11 * DPI
-        PADDING = 80
-        SPACING = 250
-
-        USABLE_WIDTH = PAGE_WIDTH - 2 * PADDING
-
-        pages = []
-        current_page = Image.new("RGB", (PAGE_WIDTH, PAGE_HEIGHT), "white")
-        current_y = PADDING
-
-        for path in all_generated_png_paths:
-            try:
-                with Image.open(path) as img:
-                    if img.mode in ("RGBA", "LA") or ("transparency" in img.info):
-                        background = Image.new("RGB", img.size, (255, 255, 255))
-                        if img.mode in ("RGBA", "LA"):
-                            background.paste(img, mask=img.split()[3])
-                        else:
-                            background.paste(img)
-                        final_img = background
-                    else:
-                        final_img = img.convert("RGB")
-
-                    if final_img.width > USABLE_WIDTH:
-                        ratio = USABLE_WIDTH / final_img.width
-                        new_width = int(final_img.width * ratio)
-                        new_height = int(final_img.height * ratio)
-                        final_img = final_img.resize(
-                            (new_width, new_height), 
-                            resample=Image.Resampling.LANCZOS
-                        )
-            except Exception as e:
-                print(f"Error opening image {path}: {e}")
-                continue
-
-            if current_y + final_img.height > PAGE_HEIGHT - PADDING:
-                pages.append(current_page)
-                current_page = Image.new("RGB", (PAGE_WIDTH, PAGE_HEIGHT), "white")
-                current_y = PADDING
-
-            current_page.paste(final_img, (PADDING, current_y))
-            current_y += final_img.height + SPACING
-
-        if current_y > PADDING:
-            pages.append(current_page)
-
-        pdf_filename = f"{instrument_name.replace(' ', '_')}_AllOctaves.pdf"
-        combined_pdf_path = os.path.join(instrument_folder, pdf_filename)
-
-        if pages:
-            pages[0].save(
-                combined_pdf_path,
-                "PDF",
-                save_all=True,
-                append_images=pages[1:],
-                resolution=DPI
-            )
-            print(f"PDF created at: {combined_pdf_path}")
-        else:
-            print("No pages to save into PDF.")
