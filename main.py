@@ -280,7 +280,7 @@ if __name__ == "__main__":
             draw = ImageDraw.Draw(current_page)
 
             # Use a larger, bold font for title on the first page
-            title_font_size = 100  # Increased title size
+            title_font_size = 150  # Increased title size for bigger text
             try:
                 font = ImageFont.truetype("arialbd.ttf", title_font_size)
             except IOError:
@@ -289,7 +289,7 @@ if __name__ == "__main__":
                 except IOError:
                     font = ImageFont.load_default()
 
-            title_text_main = f"{instrument_name} Scale's"
+            title_text_main = f"{instrument_name} Scales"
             bbox = font.getbbox(title_text_main)
             title_width = bbox[2] - bbox[0]
             title_height = bbox[3] - bbox[1]
@@ -351,6 +351,15 @@ if __name__ == "__main__":
                 print(f"PDF created at: {combined_pdf_path}")
             else:
                 print(f"No pages to save into PDF for folder {octave_folder}.")
+
+            # Create "combine" folder to store individual page PNGs
+            combine_folder = os.path.join(octave_folder, "combine")
+            os.makedirs(combine_folder, exist_ok=True)
+            for idx, page in enumerate(pages, start=1):
+                page_filename = f"page{idx}.png"
+                page_path = os.path.join(combine_folder, page_filename)
+                page.save(page_path, "PNG")
+                print(f"Saved {page_path}")
 
             previous_octave_folder = octave_folder
             previous_octave_keys = current_octave_keys.copy()
