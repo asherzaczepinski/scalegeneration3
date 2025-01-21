@@ -288,17 +288,7 @@ if __name__ == "__main__":
                     font = ImageFont.truetype("arial.ttf", title_font_size)
                 except IOError:
                     font = ImageFont.load_default()
-
-            title_text_main = f"{instrument_name} Scales"
-            bbox = font.getbbox(title_text_main)
-            title_width = bbox[2] - bbox[0]
-            title_height = bbox[3] - bbox[1]
-            title_x = (PAGE_WIDTH - title_width) // 2
-            title_y = PADDING // 2
-            draw.text((title_x, title_y), title_text_main, fill="black", font=font)
-
-            # Set starting Y position after the title
-            current_y = PADDING + title_height + SPACING
+            current_y = PADDING 
 
             for path in current_octave_paths:
                 try:
