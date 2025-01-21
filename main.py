@@ -2,7 +2,7 @@ import os
 import shutil
 from music21 import (
     stream, note, key, scale, clef, layout,
-    environment, expressions, duration, pitch
+    environment, expressions, duration
 )
 from PIL import Image
 
@@ -82,7 +82,7 @@ def create_scale_measures(title_text, scale_object, start_octave, num_octaves):
     note_counter = 0
 
     for i, p in enumerate(all_pitches):
-        # If we're on the very last note, put it in a whole measure
+        # If we're on the very last note, put it in a whole-measure
         if i == len(all_pitches) - 1:
             if current_measure.notes:
                 measures_stream.append(current_measure)
@@ -125,6 +125,7 @@ def create_scale_measures(title_text, scale_object, start_octave, num_octaves):
 
     return measures_stream
 
+
 if __name__ == "__main__":
     # --------------------------------------------------------------------
     # 1. Setup Output & Instrument Settings
@@ -143,65 +144,32 @@ if __name__ == "__main__":
         "C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"
     ]
 
-    # For each instrument, define a max octave count
+    # For each instrument, we can define a max octave count
     instrument_max_octaves = {
         "Violin": 3,
-        "Viola": 3,
-        "Cello": 3,
-        "Double Bass": 2,
-        "Harp": 3,
-        "Alto Saxophone": 3,
-        "Bass Clarinet": 3,
-        "Bassoon": 3,
-        "Clarinet": 3,
-        "English Horn": 3,
-        "Flute": 3,
-        "Oboe": 3,
-        "Piccolo": 3,
-        "Tenor Saxophone": 3,
-        "Trumpet": 3,
-        "Euphonium": 3,
-        "French Horn": 3,
-        "Trombone": 3,
-        "Tuba": 3,
+        # Add more instruments + their max octaves as needed
+        # "Viola": 3,
+        # "Trombone": 2,
     }
 
-    # Define the lowest note allowed for each instrument.
-    instrument_lowest_notes = {
-        "Violin": "G3",
-        "Viola": "C3",
-        "Cello": "C1",
-        "Double Bass": "E1",
-        "Harp": "C1",
-        "Alto Saxophone": "Bb3",
-        "Bass Clarinet": "Bb2",
-        "Bassoon": "Bb1",
-        "Clarinet": "E3",
-        "English Horn": "G3",
-        "Flute": "C4",
-        "Oboe": "Bb3",
-        "Piccolo": "D5",
-        "Tenor Saxophone": "Bb2",
-        "Trumpet": "F#3",
-        "Euphonium": "Bb1",
-        "French Horn": "C2",
-        "Trombone": "E2",
-        "Tuba": "D1",
-    }
+    # Which instruments to actually process
+    all_instruments = [
+        "Violin",
+        # "Viola",
+        # "Trombone",
+        # ...
+    ]
 
-    # List all instruments to process
-    all_instruments = list(instrument_max_octaves.keys())
-
-    # We'll start them all at the same base_start_octave
-    base_start_octave = 3
-
-    # Define a default lowest note if not specified for an instrument
-    default_lowest_note = "C3"
+    # We'll start them all at the same start_octave
+    start_octave = 3
 
     # --------------------------------------------------------------------
     # 2. Generate Scales & Collect PNG Paths
     # --------------------------------------------------------------------
     for instrument_name in all_instruments:
+        print("=" * 70)
+        print(f"Processing instrument: {instrument_name}")
+        print("=" * 70)
 
         # Instrument output folder
         instrument_folder = os.path.join(
@@ -215,31 +183,18 @@ if __name__ == "__main__":
         # Determine the maximum octaves we want for this instrument
         max_octaves_for_instrument = instrument_max_octaves.get(instrument_name, 2)
 
-        # Use instrument-specific lowest note or default
-        lowest_note_str = instrument_lowest_notes.get(instrument_name, default_lowest_note)
-        lowest_note_pitch = pitch.Pitch(lowest_note_str)
-        lowest_note_ps = lowest_note_pitch.ps
+        # We'll collect all PNG file paths here
+        all_generated_png_paths = []
 
         # For each octave count from 1..max_octaves_for_instrument
         for octave_count in range(1, max_octaves_for_instrument + 1):
-            # Create a list to collect PNGs for this octave
-            octave_png_paths = []
-
             # Make a subfolder like "1_octave" or "2_octaves"
             octave_label = f"{octave_count}_octave" if octave_count == 1 else f"{octave_count}_octaves"
             octave_folder = os.path.join(instrument_folder, octave_label)
             os.makedirs(octave_folder, exist_ok=True)
 
-            # For each key signature, generate the scale PNG and PDF conversion
+            # Generate a scale (major) for each key signature
             for key_sig in all_key_signatures:
-                # Shift the base_start_octave up if below instrument's lowest note
-                temp_octave = base_start_octave
-                scale_root_pitch = pitch.Pitch(f"{key_sig}{temp_octave}")
-                while scale_root_pitch.ps < lowest_note_ps:
-                    temp_octave += 1
-                    scale_root_pitch = pitch.Pitch(f"{key_sig}{temp_octave}")
-
-                # Build part
                 part = stream.Part()
                 part.insert(0, layout.SystemLayout(isNew=True))
                 part.insert(0, getattr(clef, selected_clef)())
@@ -248,141 +203,125 @@ if __name__ == "__main__":
                 major_key_obj = key.Key(key_sig, 'major')
                 major_scale_obj = scale.MajorScale(key_sig)
 
-                # Create measures
+                # Create measures for ascending+descending
                 title_text = (f"{instrument_name} - {key_sig} Major - "
                               f"{octave_count} octave{'s' if octave_count>1 else ''}")
                 scale_measures = create_scale_measures(
                     title_text=title_text,
                     scale_object=major_scale_obj,
-                    start_octave=temp_octave,
+                    start_octave=start_octave,
                     num_octaves=octave_count
                 )
                 if not scale_measures:
                     continue
 
-                # Insert key signature in the first measure
+                # Insert the key signature in the first measure
                 first_m = scale_measures[0]
                 first_m.insert(0, major_key_obj)
 
-                # Append measures to part
+                # Build the part
                 for m in scale_measures:
                     part.append(m)
 
-                # Create the single-scale score
+                # Score for this single scale
                 scales_score = stream.Score([part])
 
-                # Generate filename based solely on key signature
-                png_filename = f"{key_sig}.png"
+                # Filename
+                png_filename = f"{instrument_name}_{key_sig}_{octave_count}octaveScale.png"
                 png_path = os.path.join(octave_folder, png_filename)
 
-                # Write to PNG
+                # Write out to PNG via MuseScore (musicxml.png)
                 scales_score.write('musicxml.png', fp=png_path)
 
-                # Correct the filename due to MuseScore's naming (appends "-1" before extension)
-                base, ext = os.path.splitext(png_path)
-                generated_png_path = f"{base}-1{ext}"
+                # If the direct path doesn't exist, check if there's a `-1` variant
+                if not os.path.exists(png_path):
+                    base, ext = os.path.splitext(png_path)
+                    alt_path = f"{base}-1{ext}"
+                    if os.path.exists(alt_path):
+                        print(f"Found: {alt_path} instead of {png_path}")
+                        png_path = alt_path  # Just use the alt path
+                    else:
+                        print(f"Warning: Could not find {png_path} or {alt_path}!")
+                        continue
 
-                # Immediately create a PDF from the generated PNG with the same base name
-                try:
-                    with Image.open(generated_png_path) as img:
-                        # Flatten alpha if needed
-                        if img.mode in ("RGBA", "LA") or ("transparency" in img.info):
-                            background = Image.new("RGB", img.size, (255, 255, 255))
-                            if img.mode in ("RGBA", "LA"):
-                                background.paste(img, mask=img.split()[3])
-                            else:
-                                background.paste(img)
-                            final_img = background
+                print(f"Created PNG: {png_path}")
+                all_generated_png_paths.append(png_path)
+
+        # ----------------------------------------------------------------
+        # 3. Combine All PNGs for This Instrument Into One PDF
+        # ----------------------------------------------------------------
+        if not all_generated_png_paths:
+            print(f"No PNGs were generated for {instrument_name}. Skipping PDF.")
+            continue
+
+        # Sort them so they appear in a consistent order
+        all_generated_png_paths.sort()
+
+        # PDF layout settings
+        DPI = 300
+        PAGE_WIDTH = 8 * DPI      # 8.0 inches
+        PAGE_HEIGHT = 11 * DPI    # 11.0 inches
+        PADDING = 80
+        SPACING = 250
+
+        USABLE_WIDTH = PAGE_WIDTH - 2 * PADDING
+
+        pages = []
+        current_page = Image.new("RGB", (PAGE_WIDTH, PAGE_HEIGHT), "white")
+        current_y = PADDING
+
+        for path in all_generated_png_paths:
+            try:
+                with Image.open(path) as img:
+                    # If there's alpha, flatten onto white
+                    if img.mode in ("RGBA", "LA") or ("transparency" in img.info):
+                        background = Image.new("RGB", img.size, (255, 255, 255))
+                        if img.mode in ("RGBA", "LA"):
+                            background.paste(img, mask=img.split()[3])
                         else:
-                            final_img = img.convert("RGB")
+                            background.paste(img)
+                        final_img = background
+                    else:
+                        final_img = img.convert("RGB")
 
-                        # Save final_img as PDF with the same base name
-                        pdf_path = base + '.pdf'
-                        final_img.save(pdf_path, "PDF")
-                        print(f"Saved PDF: {pdf_path}")
-
-                except Exception as e:
-                    print(f"Error converting {generated_png_path} to PDF: {e}")
-
-                # If PNG doesn’t exist, skip adding it
-                if not os.path.exists(generated_png_path):
-                    continue
-
-                # Collect the path for later combination into a single PDF for this octave
-                octave_png_paths.append(generated_png_path)
-
-            # ----------------------------------------------------------------
-            # 3. Combine All PNGs for This Octave Into One PDF
-            # ----------------------------------------------------------------
-            if not octave_png_paths:
-                # No PNGs were generated for this octave
+                    # Resize if needed
+                    if final_img.width > USABLE_WIDTH:
+                        ratio = USABLE_WIDTH / final_img.width
+                        new_width = USABLE_WIDTH
+                        new_height = int(final_img.height * ratio)
+                        final_img = final_img.resize(
+                            (new_width, new_height), 
+                            resample=Image.Resampling.LANCZOS
+                        )
+            except Exception as e:
+                print(f"Error opening image {path}: {e}")
                 continue
 
-            # Sort so they appear in a consistent order
-            octave_png_paths.sort()
-
-            # Basic PDF layout settings
-            DPI = 300
-            PAGE_WIDTH = 8 * DPI      # 8.0 inches
-            PAGE_HEIGHT = 11 * DPI    # 11.0 inches
-            PADDING = 80
-            SPACING = 250
-
-            USABLE_WIDTH = PAGE_WIDTH - 2 * PADDING
-
-            pages = []
-            current_page = Image.new("RGB", (PAGE_WIDTH, PAGE_HEIGHT), "white")
-            current_y = PADDING
-
-            for path in octave_png_paths:
-                try:
-                    with Image.open(path) as img:
-                        # Flatten alpha if needed
-                        if img.mode in ("RGBA", "LA") or ("transparency" in img.info):
-                            background = Image.new("RGB", img.size, (255, 255, 255))
-                            if img.mode in ("RGBA", "LA"):
-                                background.paste(img, mask=img.split()[3])
-                            else:
-                                background.paste(img)
-                            final_img = background
-                        else:
-                            final_img = img.convert("RGB")
-
-                        # Resize if too wide
-                        if final_img.width > USABLE_WIDTH:
-                            ratio = USABLE_WIDTH / final_img.width
-                            new_width = USABLE_WIDTH
-                            new_height = int(final_img.height * ratio)
-                            final_img = final_img.resize(
-                                (new_width, new_height),
-                                resample=Image.Resampling.LANCZOS
-                            )
-                except Exception:
-                    # If any error opening the image, skip
-                    continue
-
-                # If the image doesn't fit on the current page, start a new one
-                if current_y + final_img.height > PAGE_HEIGHT - PADDING:
-                    pages.append(current_page)
-                    current_page = Image.new("RGB", (PAGE_WIDTH, PAGE_HEIGHT), "white")
-                    current_y = PADDING
-
-                current_page.paste(final_img, (PADDING, current_y))
-                current_y += final_img.height + SPACING
-
-            # Add the last page if it has any content
-            if current_y > PADDING:
+            # If doesn't fit, new page
+            if current_y + final_img.height > PAGE_HEIGHT - PADDING:
                 pages.append(current_page)
+                current_page = Image.new("RGB", (PAGE_WIDTH, PAGE_HEIGHT), "white")
+                current_y = PADDING
 
-            # Save final combined PDF for this octave
-            if pages:
-                combined_pdf_filename = f"{instrument_name.replace(' ', '_')}_{octave_label}_AllScales.pdf"
-                combined_pdf_path = os.path.join(octave_folder, combined_pdf_filename)
-                pages[0].save(
-                    combined_pdf_path,
-                    "PDF",
-                    save_all=True,
-                    append_images=pages[1:],
-                    resolution=DPI
-                )
-                print(f"Combined PDF saved for {instrument_name}, {octave_label}: {combined_pdf_path}")
+            current_page.paste(final_img, (PADDING, current_y))
+            current_y += final_img.height + SPACING
+
+        # Add the last page if it has any content
+        if current_y > PADDING:
+            pages.append(current_page)
+
+        # Save final PDF
+        pdf_filename = f"{instrument_name.replace(' ', '_')}_AllOctaves.pdf"
+        combined_pdf_path = os.path.join(instrument_folder, pdf_filename)
+
+        if pages:
+            pages[0].save(
+                combined_pdf_path,
+                "PDF",
+                save_all=True,
+                append_images=pages[1:],
+                resolution=DPI
+            )
+            print(f"PDF created at: {combined_pdf_path}")
+        else:
+            print("No pages to save into PDF.")
