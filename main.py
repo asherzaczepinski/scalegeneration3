@@ -2,7 +2,7 @@ import os
 import shutil
 from music21 import (
     stream, note, key, scale, clef, layout,
-    environment, expressions, duration
+    environment, expressions, duration, pitch
 )
 from PIL import Image
 
@@ -125,7 +125,6 @@ def create_scale_measures(title_text, scale_object, start_octave, num_octaves):
 
     return measures_stream
 
-
 if __name__ == "__main__":
     # --------------------------------------------------------------------
     # 1. Setup Output & Instrument Settings
@@ -144,24 +143,24 @@ if __name__ == "__main__":
         "C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"
     ]
 
-    # For each instrument, we can define a max octave count
-    instrument_max_octaves = {
-        "Violin": 3,
-        # Add more instruments + their max octaves as needed
-        # "Viola": 3,
-        # "Trombone": 2,
+    # Instrument ranges and settings
+    instrument_settings = {
+        "Violin": {
+            "lowest": pitch.Pitch("G3"),
+            "highest": pitch.Pitch("A7"),
+            # max_octaves removed since we will compute dynamically
+        },
+        # Define more instruments here...
     }
 
     # Which instruments to actually process
     all_instruments = [
         "Violin",
-        # "Viola",
-        # "Trombone",
-        # ...
+        # Add more instruments as needed
     ]
 
-    # We'll start them all at the same start_octave
-    start_octave = 3
+    # Base starting octave for scale generation
+    base_start_octave = 3
 
     # --------------------------------------------------------------------
     # 2. Generate Scales & Collect PNG Paths
@@ -170,6 +169,14 @@ if __name__ == "__main__":
         print("=" * 70)
         print(f"Processing instrument: {instrument_name}")
         print("=" * 70)
+
+        settings = instrument_settings.get(instrument_name)
+        if not settings:
+            print(f"No settings found for {instrument_name}. Skipping.")
+            continue
+
+        instrument_lowest = settings["lowest"]
+        instrument_highest = settings["highest"]
 
         # Instrument output folder
         instrument_folder = os.path.join(
@@ -180,28 +187,50 @@ if __name__ == "__main__":
 
         # Determine the clef
         selected_clef = determine_clef(instrument_name)
-        # Determine the maximum octaves we want for this instrument
-        max_octaves_for_instrument = instrument_max_octaves.get(instrument_name, 2)
 
         # We'll collect all PNG file paths here
         all_generated_png_paths = []
+# Remove global adjusted_start_octave usage.
+        octave_count = 1
+        while True:
+            print(f"Trying {octave_count} octave(s)...")
+            octave_valid_for_some_key = False  # Track if any valid scale is found in this octave iteration
 
-        # For each octave count from 1..max_octaves_for_instrument
-        for octave_count in range(1, max_octaves_for_instrument + 1):
-            # Make a subfolder like "1_octave" or "2_octaves"
             octave_label = f"{octave_count}_octave" if octave_count == 1 else f"{octave_count}_octaves"
             octave_folder = os.path.join(instrument_folder, octave_label)
             os.makedirs(octave_folder, exist_ok=True)
 
             # Generate a scale (major) for each key signature
             for key_sig in all_key_signatures:
+                major_key_obj = key.Key(key_sig, 'major')
+                major_scale_obj = scale.MajorScale(key_sig)
+
+                # Determine starting octave specific to this key (ensuring first note >= instrument_lowest)
+                start_octave = base_start_octave
+                while True:
+                    first_pitch = pitch.Pitch(f"{major_scale_obj.tonic.name}{start_octave}")
+                    if first_pitch < instrument_lowest:
+                        start_octave += 1
+                    else:
+                        break
+
+                # Generate the full list of pitches for the ascending and descending scale
+                lower_pitch = f"{major_scale_obj.tonic.name}{start_octave}"
+                upper_pitch = f"{major_scale_obj.tonic.name}{start_octave + octave_count}"
+                pitches_up = major_scale_obj.getPitches(lower_pitch, upper_pitch)
+                pitches_down = list(reversed(pitches_up[:-1]))
+                all_pitches = pitches_up + pitches_down
+
+                # Validate that all pitches are within the instrument's range
+                if any(p < instrument_lowest or p > instrument_highest for p in all_pitches):
+                    continue  # Skip this key if any note falls outside the range
+
+                # If we reached here, we found at least one valid scale for this octave_count.
+                octave_valid_for_some_key = True
+
                 part = stream.Part()
                 part.insert(0, layout.SystemLayout(isNew=True))
                 part.insert(0, getattr(clef, selected_clef)())
-
-                # Create Key + scale
-                major_key_obj = key.Key(key_sig, 'major')
-                major_scale_obj = scale.MajorScale(key_sig)
 
                 # Create measures for ascending+descending
                 title_text = (f"{instrument_name} - {key_sig} Major - "
@@ -227,7 +256,7 @@ if __name__ == "__main__":
                 scales_score = stream.Score([part])
 
                 # Filename
-                png_filename = f"{instrument_name}_{key_sig}_{octave_count}octaveScale.png"
+                png_filename = f"{key_sig}.png"
                 png_path = os.path.join(octave_folder, png_filename)
 
                 # Write out to PNG via MuseScore (musicxml.png)
@@ -247,6 +276,12 @@ if __name__ == "__main__":
                 print(f"Created PNG: {png_path}")
                 all_generated_png_paths.append(png_path)
 
+            # If no valid scales found for this octave_count, break the loop.
+            if not octave_valid_for_some_key:
+                print(f"No valid scales found for {octave_count} octave(s). Stopping further generation.")
+                break
+
+            octave_count += 1
         # ----------------------------------------------------------------
         # 3. Combine All PNGs for This Instrument Into One PDF
         # ----------------------------------------------------------------
@@ -287,7 +322,7 @@ if __name__ == "__main__":
                     # Resize if needed
                     if final_img.width > USABLE_WIDTH:
                         ratio = USABLE_WIDTH / final_img.width
-                        new_width = USABLE_WIDTH
+                        new_width = int(final_img.width * ratio)
                         new_height = int(final_img.height * ratio)
                         final_img = final_img.resize(
                             (new_width, new_height), 
