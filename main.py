@@ -215,7 +215,7 @@ if __name__ == "__main__":
 
                 scales_score = stream.Score([part])
 
-                png_filename = f"{key_sig}_{octave_count}octave.png"
+                png_filename = f"{key_sig}.png"
                 png_path = os.path.join(octave_folder, png_filename)
                 scales_score.write('musicxml.png', fp=png_path)
 
