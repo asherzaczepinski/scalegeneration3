@@ -2,7 +2,7 @@ import os
 import shutil
 from music21 import (
     stream, note, key, scale, clef, layout,
-    environment, expressions, duration, pitch, articulations
+    environment, expressions, duration, pitch
 )
 from PIL import Image, ImageDraw, ImageFont
 
@@ -59,40 +59,6 @@ def determine_clef(instrument_name):
     }
     return instrument_map.get(instrument_name, "TrebleClef")
 
-# ------------------------------------------------------------------------
-# Simple Violin Fingering Logic
-# ------------------------------------------------------------------------
-VIOLIN_OPEN_STRINGS = {
-    pitch.Pitch("G3").nameWithOctave,
-    pitch.Pitch("D4").nameWithOctave,
-    pitch.Pitch("A4").nameWithOctave,
-    pitch.Pitch("E5").nameWithOctave
-}
-
-def get_violin_fingering(n: note.Note) -> articulations.Fingering:
-    """
-    Return a simplistic fingering for a violin note.
-    - '0' if it matches an open string exactly (G3, D4, A4, E5).
-    - Otherwise, assign a naive fingering based on how far above
-      the nearest open string note is (in semitones).
-    """
-    pitch_name = n.pitch.nameWithOctave
-    if pitch_name in VIOLIN_OPEN_STRINGS:
-        return articulations.Fingering('0')  # Open string
-
-    distances = []
-    note_midi = n.pitch.midi
-    for open_str in VIOLIN_OPEN_STRINGS:
-        open_str_midi = pitch.Pitch(open_str).midi
-        distances.append((abs(note_midi - open_str_midi), open_str_midi))
-    distances.sort(key=lambda x: x[0])
-    _, closest_open_string_midi = distances[0]
-
-    semitone_diff = note_midi - closest_open_string_midi
-    # Naive mapping from semitone difference -> finger number
-    finger_num = max(1, min(4, (abs(semitone_diff) - 1)//2 + 1))
-    return articulations.Fingering(str(finger_num))
-
 def create_scale_measures(title_text, scale_object, start_octave, num_octaves, instrument_name="Violin"):
     measures_stream = stream.Stream()
     lower_pitch = f"{scale_object.tonic.name}{start_octave}"
@@ -119,11 +85,6 @@ def create_scale_measures(title_text, scale_object, start_octave, num_octaves, i
             n = note.Note(p)
             n.duration = duration.Duration('whole')
             fix_enharmonic_spelling(n)
-
-            if instrument_name == "Violin":
-                fingering = get_violin_fingering(n)
-                n.articulations.append(fingering)
-
             m_whole.append(n)
             measures_stream.append(m_whole)
             break
@@ -140,21 +101,11 @@ def create_scale_measures(title_text, scale_object, start_octave, num_octaves, i
             n = note.Note(p)
             n.duration = duration.Duration('quarter')
             fix_enharmonic_spelling(n)
-
-            if instrument_name == "Violin":
-                fingering = get_violin_fingering(n)
-                n.articulations.append(fingering)
-
             current_measure.append(n)
         else:
             n = note.Note(p)
             n.duration = duration.Duration('eighth')
             fix_enharmonic_spelling(n)
-
-            if instrument_name == "Violin":
-                fingering = get_violin_fingering(n)
-                n.articulations.append(fingering)
-
             current_measure.append(n)
         note_counter += 1
 
@@ -174,21 +125,28 @@ if __name__ == "__main__":
     instrument_settings = {
         "Violin": {
             "lowest": pitch.Pitch("G3"),
-            # Removed highest setting per request
         },
-        # Add other instruments and their ranges as needed
+        "Viola": {
+            "lowest": pitch.Pitch("C3"),
+        },
+        "Cello": {
+            "lowest": pitch.Pitch("C2"),
+        },
+        "Double Bass": {
+            "lowest": pitch.Pitch("E2"),
+        },
     }
-    all_instruments = ["Violin"]
+    all_instruments = ["Violin", "Viola", "Cello", "Double Bass"]
     base_start_octave = 3
 
     DPI = 300
     PAGE_WIDTH = 8 * DPI
     PAGE_HEIGHT = 11 * DPI
     PADDING = 80
-    SPACING = 350  # Increased spacing between images
+    SPACING = 350
     USABLE_WIDTH = PAGE_WIDTH - 2 * PADDING
 
-    MAX_OCTAVES = 2  # Limit to 1 and 2 octaves
+    MAX_OCTAVES = 2
 
     for instrument_name in all_instruments:
         print("=" * 70)
@@ -209,7 +167,7 @@ if __name__ == "__main__":
         octave_count = 1
 
         while octave_count <= MAX_OCTAVES:
-            print(f"Generating scales for {octave_count} octave(s)...")
+            print(f"Generating scales for {octave_count} octave(s) on {instrument_name}...")
 
             octave_label = f"{octave_count}_octave" if octave_count == 1 else f"{octave_count}_octaves"
             octave_folder = os.path.join(instrument_folder, octave_label)
@@ -221,8 +179,14 @@ if __name__ == "__main__":
                 major_key_obj = key.Key(key_sig, 'major')
                 major_scale_obj = scale.MajorScale(key_sig)
 
-                # Determine a start octave that is above the instrument's lowest note
+                # Initialize start_octave to a base value
                 start_octave = base_start_octave
+
+                # Decrease start_octave if the note is higher than the instrument's lowest
+                while pitch.Pitch(f"{major_scale_obj.tonic.name}{start_octave}") > instrument_lowest:
+                    start_octave -= 1
+
+                # Increase start_octave if the first note is below the instrument's lowest
                 while True:
                     first_pitch = pitch.Pitch(f"{major_scale_obj.tonic.name}{start_octave}")
                     if first_pitch < instrument_lowest:
@@ -254,13 +218,11 @@ if __name__ == "__main__":
 
                 scales_score = stream.Score([part])
 
-                # Replace '#' with 'sharp' in the filename for safety
                 safe_key_sig = key_sig.replace("#", "sharp")
                 png_filename = f"{safe_key_sig}.png"
                 png_path = os.path.join(octave_folder, png_filename)
                 scales_score.write('musicxml.png', fp=png_path)
 
-                # Handle alternative naming if necessary
                 if not os.path.exists(png_path):
                     base_name, ext = os.path.splitext(png_path)
                     alt_path = f"{base_name}-1{ext}"
@@ -273,7 +235,6 @@ if __name__ == "__main__":
                 print(f"Created PNG: {png_path}")
                 current_octave_paths.append(png_path)
 
-            # Sort paths according to circle of fifths order
             order_index = {k: i for i, k in enumerate(circle_of_fifths_major)}
             def key_from_path(p):
                 base = os.path.basename(p)
@@ -284,12 +245,11 @@ if __name__ == "__main__":
                 return ""
             current_octave_paths.sort(key=lambda p: order_index.get(key_from_path(p), 999))
 
-            # Generate combined.pdf for the current octave folder
             pages = []
             current_page = Image.new("RGB", (PAGE_WIDTH, PAGE_HEIGHT), "white")
             draw = ImageDraw.Draw(current_page)
 
-            title_font_size = 150  # Larger title font size
+            title_font_size = 150
             try:
                 font = ImageFont.truetype("arialbd.ttf", title_font_size)
             except IOError:
@@ -324,7 +284,6 @@ if __name__ == "__main__":
                     print(f"Error opening image {path}: {e}")
                     continue
 
-                # If image doesn't fit on current page, start a new page
                 if current_y + final_img.height > PAGE_HEIGHT - PADDING:
                     pages.append(current_page)
                     current_page = Image.new("RGB", (PAGE_WIDTH, PAGE_HEIGHT), "white")
