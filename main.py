@@ -187,6 +187,7 @@ if __name__ == "__main__":
                 pitches_down = list(reversed(pitches_up[:-1]))
                 all_pitches = pitches_up + pitches_down
 
+                # Skip if any pitch is outside instrument range
                 if any(p < instrument_lowest or p > instrument_highest for p in all_pitches):
                     continue
 
@@ -232,32 +233,10 @@ if __name__ == "__main__":
                 current_octave_keys[key_sig] = png_path
                 current_octave_paths.append(png_path)
 
+            # Report missing scales, but do not stop or remove folder
             missing_keys = set(all_key_signatures) - set(current_octave_keys.keys())
             if missing_keys:
                 print(f"Missing scales for octave {octave_count}: {missing_keys}")
-                if not previous_octave_folder:
-                    print("No previous octave available to substitute missing scales. Stopping generation.")
-                    shutil.rmtree(octave_folder)
-                    break
-
-                for key_sig in missing_keys:
-                    prev_png_filename = f"{key_sig}_{octave_count-1}octave.png"
-                    source_path = os.path.join(previous_octave_folder, prev_png_filename)
-                    if os.path.exists(source_path):
-                        dest_path = os.path.join(octave_folder, prev_png_filename)
-                        shutil.copy(source_path, dest_path)
-                        print(f"Copied from {source_path} to {dest_path}")
-                        current_octave_keys[key_sig] = dest_path
-                        current_octave_paths.append(dest_path)
-                    else:
-                        print(f"Could not find source for missing scale {key_sig} from previous octave at {source_path}.")
-
-                still_missing = set(all_key_signatures) - set(current_octave_keys.keys())
-                if still_missing:
-                    print(f"Even after substitutions, scales missing for keys: {still_missing}")
-                    print(f"Stopping further octave generation after {octave_count} octave(s).")
-                    shutil.rmtree(octave_folder)
-                    break
 
             if not octave_valid_for_some_key:
                 print(f"No valid scales found for {octave_count} octave(s). Removing folder and stopping further generation.")
