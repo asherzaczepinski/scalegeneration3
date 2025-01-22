@@ -215,7 +215,9 @@ if __name__ == "__main__":
 
                 scales_score = stream.Score([part])
 
-                png_filename = f"{key_sig}.png"
+                # Replace '#' with 'sharp' in the filename
+                safe_key_sig = key_sig.replace("#", "sharp")
+                png_filename = f"{safe_key_sig}.png"
                 png_path = os.path.join(octave_folder, png_filename)
                 scales_score.write('musicxml.png', fp=png_path)
 
@@ -248,7 +250,9 @@ if __name__ == "__main__":
             def key_from_path(p):
                 base = os.path.basename(p)
                 for key_sig in circle_of_fifths_major:
-                    if base.startswith(key_sig + "_"):
+                    safe_key = key_sig.replace("#", "sharp")
+                    # Check if filename starts with key signature (followed by '.' or '_')
+                    if base.startswith(safe_key + ".") or base.startswith(safe_key + "_"):
                         return key_sig
                 return ""
             current_octave_paths.sort(key=lambda p: order_index.get(key_from_path(p), 999))
