@@ -174,7 +174,7 @@ if __name__ == "__main__":
     instrument_settings = {
         "Violin": {
             "lowest": pitch.Pitch("G3"),
-            "highest": pitch.Pitch("A7"),
+            # Removed highest setting per request
         },
         # Add other instruments and their ranges as needed
     }
@@ -188,6 +188,8 @@ if __name__ == "__main__":
     SPACING = 350  # Increased spacing between images
     USABLE_WIDTH = PAGE_WIDTH - 2 * PADDING
 
+    MAX_OCTAVES = 2  # Limit to 1 and 2 octaves
+
     for instrument_name in all_instruments:
         print("=" * 70)
         print(f"Processing instrument: {instrument_name}")
@@ -199,31 +201,27 @@ if __name__ == "__main__":
             continue
 
         instrument_lowest = settings["lowest"]
-        instrument_highest = settings["highest"]
         instrument_folder = os.path.join(output_folder, instrument_name.replace(" ", "_"))
         os.makedirs(instrument_folder, exist_ok=True)
 
         selected_clef = determine_clef(instrument_name)
 
         octave_count = 1
-        previous_octave_folder = None
-        previous_octave_keys = {}
 
-        while True:
-            print(f"Trying {octave_count} octave(s)...")
-            octave_valid_for_some_key = False
+        while octave_count <= MAX_OCTAVES:
+            print(f"Generating scales for {octave_count} octave(s)...")
 
             octave_label = f"{octave_count}_octave" if octave_count == 1 else f"{octave_count}_octaves"
             octave_folder = os.path.join(instrument_folder, octave_label)
             os.makedirs(octave_folder, exist_ok=True)
 
-            current_octave_keys = {}
             current_octave_paths = []
 
             for key_sig in all_key_signatures:
                 major_key_obj = key.Key(key_sig, 'major')
                 major_scale_obj = scale.MajorScale(key_sig)
 
+                # Determine a start octave that is above the instrument's lowest note
                 start_octave = base_start_octave
                 while True:
                     first_pitch = pitch.Pitch(f"{major_scale_obj.tonic.name}{start_octave}")
@@ -231,18 +229,6 @@ if __name__ == "__main__":
                         start_octave += 1
                     else:
                         break
-
-                lower_pitch = f"{major_scale_obj.tonic.name}{start_octave}"
-                upper_pitch = f"{major_scale_obj.tonic.name}{start_octave + octave_count}"
-                pitches_up = major_scale_obj.getPitches(lower_pitch, upper_pitch)
-                pitches_down = list(reversed(pitches_up[:-1]))
-                all_pitches = pitches_up + pitches_down
-
-                # Skip if any pitch is outside instrument range
-                if any(p < instrument_lowest or p > instrument_highest for p in all_pitches):
-                    continue
-
-                octave_valid_for_some_key = True
 
                 part = stream.Part()
                 part.insert(0, layout.SystemLayout(isNew=True))
@@ -256,6 +242,7 @@ if __name__ == "__main__":
                     num_octaves=octave_count,
                     instrument_name=instrument_name
                 )
+
                 if not scale_measures:
                     continue
 
@@ -284,19 +271,9 @@ if __name__ == "__main__":
                         continue
 
                 print(f"Created PNG: {png_path}")
-                current_octave_keys[key_sig] = png_path
                 current_octave_paths.append(png_path)
 
-            missing_keys = set(all_key_signatures) - set(current_octave_keys.keys())
-            if missing_keys:
-                print(f"Missing scales for octave {octave_count}: {missing_keys}")
-
-            if not octave_valid_for_some_key:
-                print(f"No valid scales found for {octave_count} octave(s). Removing folder and stopping further generation.")
-                shutil.rmtree(octave_folder)
-                break
-
-            # Sort current_octave_paths according to circle of fifths order
+            # Sort paths according to circle of fifths order
             order_index = {k: i for i, k in enumerate(circle_of_fifths_major)}
             def key_from_path(p):
                 base = os.path.basename(p)
