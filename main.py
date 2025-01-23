@@ -154,10 +154,10 @@ if __name__ == "__main__":
             "lowest": pitch.Pitch("C4"),
         },
         "French Horn": {
-            "lowest": pitch.Pitch("F2"),
+            "lowest": pitch.Pitch("F3"),
         },
         "Oboe": {
-            "lowest": pitch.Pitch("B3"),
+            "lowest": pitch.Pitch("Bb3"),
         },
         "Piccolo": {
             "lowest": pitch.Pitch("D5"),
@@ -166,24 +166,33 @@ if __name__ == "__main__":
             "lowest": pitch.Pitch("B2"),
         },
         "Trombone": {
-            "lowest": pitch.Pitch("E2"),
+            "lowest": pitch.Pitch("A2"),
         },
         "Trumpet": {
             "lowest": pitch.Pitch("F#3"),
         },
         "Tuba": {
-            "lowest": pitch.Pitch("B1"),
+            "lowest": pitch.Pitch("C3"),
         },
     }
     all_instruments = [
-        #"Violin", "Viola", "Cello", "Double Bass",
-        #"Bass Clarinet", 
-        #"Alto Saxophone", 
-        #"Bassoon", 
-        #"Clarinet",
-        #"Euphonium", 
-        "Flute", "French Horn", "Oboe",
-        "Piccolo", "Tenor Saxophone", "Trombone", "Trumpet", "Tuba"
+        "Violin", 
+        "Viola", 
+        "Cello", 
+        "Double Bass",
+        "Bass Clarinet", 
+        "Alto Saxophone", 
+        "Bassoon", 
+        "Clarinet",
+        "Euphonium", 
+        "Flute", 
+        "French Horn", 
+        "Oboe",
+        "Piccolo", 
+        "Tenor Saxophone", 
+        "Trombone", 
+        "Trumpet", 
+        "Tuba"
     ]
     base_start_octave = 3
 
