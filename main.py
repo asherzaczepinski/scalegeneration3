@@ -46,14 +46,13 @@ def determine_clef(instrument_name):
         "Bass Clarinet":   "TrebleClef",
         "Bassoon":         "BassClef",
         "Clarinet":        "TrebleClef",
-        "English Horn":    "TrebleClef",
+        "Euphonium":       "BassClef",
         "Flute":           "TrebleClef",
+        "French Horn":     "TrebleClef",
         "Oboe":            "TrebleClef",
         "Piccolo":         "TrebleClef",
         "Tenor Saxophone": "TrebleClef",
         "Trumpet":         "TrebleClef",
-        "Euphonium":       "BassClef",
-        "French Horn":     "TrebleClef",
         "Trombone":        "BassClef",
         "Tuba":            "BassClef",
     }
@@ -135,8 +134,55 @@ if __name__ == "__main__":
         "Double Bass": {
             "lowest": pitch.Pitch("E2"),
         },
+        # Added Instruments
+        "Bass Clarinet": {
+            "lowest": pitch.Pitch("B2"),  # B♭2
+        },
+        "Alto Saxophone": {
+            "lowest": pitch.Pitch("C4"),
+        },
+        "Bassoon": {
+            "lowest": pitch.Pitch("B1"),
+        },
+        "Clarinet": {
+            "lowest": pitch.Pitch("E3"),  # Assuming B♭ Clarinet
+        },
+        "Euphonium": {
+            "lowest": pitch.Pitch("E2"),
+        },
+        "Flute": {
+            "lowest": pitch.Pitch("C4"),
+        },
+        "French Horn": {
+            "lowest": pitch.Pitch("F2"),
+        },
+        "Oboe": {
+            "lowest": pitch.Pitch("B3"),
+        },
+        "Piccolo": {
+            "lowest": pitch.Pitch("D5"),
+        },
+        "Tenor Saxophone": {
+            "lowest": pitch.Pitch("B2"),
+        },
+        "Trombone": {
+            "lowest": pitch.Pitch("E2"),
+        },
+        "Trumpet": {
+            "lowest": pitch.Pitch("F#3"),
+        },
+        "Tuba": {
+            "lowest": pitch.Pitch("B1"),
+        },
     }
-    all_instruments = ["Violin", "Viola", "Cello", "Double Bass"]
+    all_instruments = [
+        #"Violin", "Viola", "Cello", "Double Bass",
+        "Bass Clarinet", 
+        #"Alto Saxophone", 
+        "Bassoon", "Clarinet",
+        "Euphonium", "Flute", "French Horn", "Oboe",
+        "Piccolo", "Tenor Saxophone", "Trombone", "Trumpet", "Tuba"
+    ]
     base_start_octave = 3
 
     DPI = 300
