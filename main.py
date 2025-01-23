@@ -136,7 +136,7 @@ if __name__ == "__main__":
         },
         # Added Instruments
         "Bass Clarinet": {
-            "lowest": pitch.Pitch("B2"),  # B♭2
+            "lowest": pitch.Pitch("E3"),  # B♭2
         },
         "Alto Saxophone": {
             "lowest": pitch.Pitch("C4"),
@@ -177,10 +177,12 @@ if __name__ == "__main__":
     }
     all_instruments = [
         #"Violin", "Viola", "Cello", "Double Bass",
-        "Bass Clarinet", 
+        #"Bass Clarinet", 
         #"Alto Saxophone", 
-        "Bassoon", "Clarinet",
-        "Euphonium", "Flute", "French Horn", "Oboe",
+        #"Bassoon", 
+        #"Clarinet",
+        #"Euphonium", 
+        "Flute", "French Horn", "Oboe",
         "Piccolo", "Tenor Saxophone", "Trombone", "Trumpet", "Tuba"
     ]
     base_start_octave = 3
