@@ -9,8 +9,9 @@ from PIL import Image, ImageDraw, ImageFont
 # ------------------------------------------------------------------------
 # Configure music21 to find MuseScore on your system
 # ------------------------------------------------------------------------
-environment.set('musicxmlPath', '/Applications/MuseScore 3.app/Contents/MacOS/mscore')
-environment.set('musescoreDirectPNGPath', '/Applications/MuseScore 3.app/Contents/MacOS/mscore')
+# Update these paths based on your MuseScore installation
+environment.set('musicxmlPath', '/Applications/MuseScore 3.app/Contents/MacOS/mscore')  # macOS example
+environment.set('musescoreDirectPNGPath', '/Applications/MuseScore 3.app/Contents/MacOS/mscore')  # macOS example
 
 # ------------------------------------------------------------------------
 # Enharmonic mappings
@@ -36,6 +37,7 @@ def fix_enharmonic_spelling(n):
         n.pitch.accidental.displayType = 'normal'
 
 def determine_clef(instrument_name):
+    """Determine the appropriate clef based on the instrument."""
     instrument_map = {
         "Violin":          "TrebleClef",
         "Viola":           "AltoClef",
@@ -58,7 +60,20 @@ def determine_clef(instrument_name):
     }
     return instrument_map.get(instrument_name, "TrebleClef")
 
-def create_scale_measures(title_text, scale_object, start_octave, num_octaves, instrument_name="Violin"):
+def create_whole_note_measures(title_text, scale_object, start_octave, num_octaves, instrument_name="Violin"):
+    """
+    Create whole note measures for the given scale.
+
+    Parameters:
+    - title_text (str): Title text to display above the scale.
+    - scale_object (music21.scale.Scale): The scale to generate.
+    - start_octave (int): Starting octave.
+    - num_octaves (int): Number of octaves.
+    - instrument_name (str): Name of the instrument.
+
+    Returns:
+    - stream.Stream: The generated measures.
+    """
     measures_stream = stream.Stream()
     lower_pitch = f"{scale_object.tonic.name}{start_octave}"
     upper_pitch = f"{scale_object.tonic.name}{start_octave + num_octaves}"
@@ -67,77 +82,74 @@ def create_scale_measures(title_text, scale_object, start_octave, num_octaves, i
     pitches_down = list(reversed(pitches_up[:-1]))
     all_pitches = pitches_up + pitches_down
 
-    notes_per_measure = 7
-    current_measure = stream.Measure()
-    note_counter = 0
-
     for i, p in enumerate(all_pitches):
-        # Handle last note as a whole note in its own measure
-        if i == len(all_pitches) - 1:
-            if current_measure.notes:
-                measures_stream.append(current_measure)
-            m_whole = stream.Measure()
-            if i == 0:
-                txt = expressions.TextExpression(title_text)
-                txt.placement = 'above'
-                m_whole.insert(0, txt)
-            n = note.Note(p)
-            n.duration = duration.Duration('whole')
-            fix_enharmonic_spelling(n)
-            m_whole.append(n)
-            measures_stream.append(m_whole)
-            break
-
-        pos_in_measure = note_counter % notes_per_measure
-        if pos_in_measure == 0:
-            if current_measure.notes:
-                measures_stream.append(current_measure)
-            current_measure = stream.Measure()
-            if i == 0:
-                txt = expressions.TextExpression(title_text)
-                txt.placement = 'above'
-                current_measure.insert(0, txt)
-            n = note.Note(p)
-            n.duration = duration.Duration('quarter')
-            fix_enharmonic_spelling(n)
-            current_measure.append(n)
-        else:
-            n = note.Note(p)
-            n.duration = duration.Duration('eighth')
-            fix_enharmonic_spelling(n)
-            current_measure.append(n)
-        note_counter += 1
+        m = stream.Measure()
+        if i == 0:
+            txt = expressions.TextExpression(title_text)
+            txt.placement = 'above'
+            m.insert(0, txt)
+        n = note.Note(p)
+        n.duration = duration.Duration('whole')
+        fix_enharmonic_spelling(n)
+        m.append(n)
+        measures_stream.append(m)
 
     return measures_stream
 
-def generate_scales_for_instrument(
-    instrument_name,
-    output_folder="output2",
-    base_start_octave=3,
-    max_octaves=2,
-    dpi=300,
-    page_width=8,
-    page_height=11,
-    padding=80,
-    spacing=350,
-    usable_width_ratio=1.0  # To allow dynamic adjustment if needed
-):
+def combine_scale_images_vertically(image_paths, output_path, padding_between=50):
     """
-    Generate musical scales for a specified instrument and save the outputs.
+    Combine multiple images vertically with padding.
 
     Parameters:
-    - instrument_name (str): Name of the instrument (e.g., 'Violin', 'Flute').
-    - output_folder (str): Base directory to save outputs. Defaults to 'output2'.
-    - base_start_octave (int): Starting octave for scale generation. Defaults to 3.
-    - max_octaves (int): Number of octaves to generate. Defaults to 2.
-    - dpi (int): Resolution for image generation. Defaults to 300.
-    - page_width (int): Width of the page in inches. Defaults to 8.
-    - page_height (int): Height of the page in inches. Defaults to 11.
-    - padding (int): Padding in pixels around the page. Defaults to 80.
-    - spacing (int): Vertical spacing between images on the page. Defaults to 350.
-    - usable_width_ratio (float): Ratio of the page width to use for images. Defaults to 1.0.
+    - image_paths (list of str): Paths to the images to combine.
+    - output_path (str): Path to save the combined image.
+    - padding_between (int): Padding in pixels between images.
     """
-    # Define all instruments and their settings
+    try:
+        images = []
+        for path in image_paths:
+            with Image.open(path) as img:
+                # Convert images to RGB if they are not
+                if img.mode != 'RGB':
+                    img = img.convert('RGB')
+                images.append(img.copy())
+
+        # Calculate the width and total height for the combined image
+        max_width = max(img.width for img in images)
+        total_height = sum(img.height for img in images) + padding_between * (len(images) - 1)
+
+        # Create a new blank image with white background
+        combined_img = Image.new("RGB", (max_width, total_height), "white")
+
+        current_y = 0
+        for img in images:
+            # If the image width is less than max_width, center it
+            if img.width < max_width:
+                x_position = (max_width - img.width) // 2
+            else:
+                x_position = 0
+            combined_img.paste(img, (x_position, current_y))
+            current_y += img.height + padding_between
+
+        combined_img.save(output_path, "PNG")
+        print(f"Combined image saved at: {output_path}")
+
+    except FileNotFoundError as fnf_error:
+        print(f"File not found error: {fnf_error}")
+    except Exception as e:
+        print(f"Error combining images {image_paths}: {e}")
+
+if __name__ == "__main__":
+    # Setup output directory
+    output_folder = "/Users/az/Desktop/scalegeneration3/output2"  # Changed to 'output2'
+    if os.path.exists(output_folder):
+        shutil.rmtree(output_folder)
+    os.makedirs(output_folder, exist_ok=True)
+
+    # Circle of fifths order for major keys
+    circle_of_fifths_major = ["C", "G", "D", "A", "E", "B", "F#", "C#", "Ab", "Eb", "Bb", "F"]
+    all_key_signatures = circle_of_fifths_major
+
     instrument_settings = {
         "Violin": {
             "lowest": pitch.Pitch("G3"),
@@ -192,203 +204,172 @@ def generate_scales_for_instrument(
             "lowest": pitch.Pitch("C3"),
         },
     }
-    all_key_signatures = ["C", "G", "D", "A", "E", "B", "F#", "C#", "Ab", "Eb", "Bb", "F"]
+    all_instruments = [ 
+        "Clarinet",
+    ]
+    base_start_octave = 3
 
-    # Validate the instrument
-    if instrument_name not in instrument_settings:
-        raise ValueError(f"Instrument '{instrument_name}' is not supported. Supported instruments are: {list(instrument_settings.keys())}")
-
-    settings = instrument_settings[instrument_name]
-    instrument_lowest = settings["lowest"]
-
-    # Setup output directory
-    instrument_folder = os.path.join(output_folder, instrument_name.replace(" ", "_"))
-    if os.path.exists(instrument_folder):
-        shutil.rmtree(instrument_folder)
-    os.makedirs(instrument_folder, exist_ok=True)
-
-    selected_clef = determine_clef(instrument_name)
-
-    DPI = dpi
-    PAGE_WIDTH = page_width * DPI
-    PAGE_HEIGHT = page_height * DPI
-    PADDING = padding
-    SPACING = spacing
+    DPI = 300
+    PAGE_WIDTH = 8 * DPI
+    PAGE_HEIGHT = 11 * DPI
+    PADDING = 80
+    SPACING = 350
     USABLE_WIDTH = PAGE_WIDTH - 2 * PADDING
-    USABLE_WIDTH *= usable_width_ratio
 
-    MAX_OCTAVES = max_octaves
-    base_start_octave = base_start_octave
+    MAX_OCTAVES = 2
 
-    for octave_count in range(1, MAX_OCTAVES + 1):
-        print(f"Generating scales for {octave_count} octave(s) on {instrument_name}...")
+    for instrument_name in all_instruments:
+        print("=" * 70)
+        print(f"Processing instrument: {instrument_name}")
+        print("=" * 70)
 
-        octave_label = f"{octave_count}_octave" if octave_count == 1 else f"{octave_count}_octaves"
-        octave_folder = os.path.join(instrument_folder, octave_label)
-        os.makedirs(octave_folder, exist_ok=True)
+        settings = instrument_settings.get(instrument_name)
+        if not settings:
+            print(f"No settings found for {instrument_name}. Skipping.")
+            continue
 
-        current_octave_paths = []
+        instrument_lowest = settings["lowest"]
+        instrument_folder = os.path.join(output_folder, instrument_name.replace(" ", "_"))
+        os.makedirs(instrument_folder, exist_ok=True)
 
-        for key_sig in all_key_signatures:
-            major_key_obj = key.Key(key_sig, 'major')
-            major_scale_obj = scale.MajorScale(key_sig)
+        selected_clef = determine_clef(instrument_name)
 
-            # Initialize start_octave to a base value
-            start_octave = base_start_octave
+        octave_count = 1
 
-            # Decrease start_octave if the note is higher than the instrument's lowest
-            while pitch.Pitch(f"{major_scale_obj.tonic.name}{start_octave}") > instrument_lowest:
-                start_octave -= 1
+        while octave_count <= MAX_OCTAVES:
+            print(f"Generating scales for {octave_count} octave(s) on {instrument_name}...")
 
-            # Increase start_octave if the first note is below the instrument's lowest
-            while True:
-                first_pitch = pitch.Pitch(f"{major_scale_obj.tonic.name}{start_octave}")
-                if first_pitch < instrument_lowest:
-                    start_octave += 1
-                else:
-                    break
+            octave_label = f"{octave_count}_octave" if octave_count == 1 else f"{octave_count}_octaves"
+            octave_folder = os.path.join(instrument_folder, octave_label)
+            os.makedirs(octave_folder, exist_ok=True)
 
-            part = stream.Part()
-            part.insert(0, layout.SystemLayout(isNew=True))
-            part.insert(0, getattr(clef, selected_clef)())
+            current_octave_paths = []
 
-            title_text = f"{instrument_name} - {key_sig} Major - {octave_count} octave{'s' if octave_count>1 else ''}"
-            scale_measures = create_scale_measures(
-                title_text=title_text,
-                scale_object=major_scale_obj,
-                start_octave=start_octave,
-                num_octaves=octave_count,
-                instrument_name=instrument_name
-            )
+            for key_sig in all_key_signatures:
+                major_key_obj = key.Key(key_sig, 'major')
+                major_scale_obj = scale.MajorScale(key_sig)
 
-            if not scale_measures:
-                continue
+                # Initialize start_octave to a base value
+                start_octave = base_start_octave
 
-            first_m = scale_measures[0]
-            first_m.insert(0, major_key_obj)
+                # Decrease start_octave if the note is higher than the instrument's lowest
+                while pitch.Pitch(f"{major_scale_obj.tonic.name}{start_octave}") > instrument_lowest:
+                    start_octave -= 1
 
-            for m in scale_measures:
-                part.append(m)
+                # Increase start_octave if the first note is below the instrument's lowest
+                while True:
+                    first_pitch = pitch.Pitch(f"{major_scale_obj.tonic.name}{start_octave}")
+                    if first_pitch < instrument_lowest:
+                        start_octave += 1
+                    else:
+                        break
 
-            scales_score = stream.Score([part])
+                part = stream.Part()
+                part.insert(0, layout.SystemLayout(isNew=True))
+                part.insert(0, getattr(clef, selected_clef)())
 
-            safe_key_sig = key_sig.replace("#", "sharp")
-            png_filename = f"{safe_key_sig}.png"
-            png_path = os.path.join(octave_folder, png_filename)
-            scales_score.write('musicxml.png', fp=png_path)
+                title_text = f"{instrument_name} - {key_sig} Major - {octave_count} octave{'s' if octave_count>1 else ''}"
+                scale_measures = create_whole_note_measures(
+                    title_text=title_text,
+                    scale_object=major_scale_obj,
+                    start_octave=start_octave,
+                    num_octaves=octave_count,
+                    instrument_name=instrument_name
+                )
 
-            if not os.path.exists(png_path):
-                base_name, ext = os.path.splitext(png_path)
-                alt_path = f"{base_name}-1{ext}"
-                if os.path.exists(alt_path):
-                    shutil.move(alt_path, png_path)
-                else:
-                    print(f"Warning: Could not find {png_path} or {alt_path}!")
+                if not scale_measures:
                     continue
 
-            print(f"Created PNG: {png_path}")
-            current_octave_paths.append(png_path)
+                first_m = scale_measures[0]
+                first_m.insert(0, major_key_obj)
 
-        # Sort the paths based on the circle of fifths
-        circle_of_fifths_major = ["C", "G", "D", "A", "E", "B", "F#", "C#", "Ab", "Eb", "Bb", "F"]
-        order_index = {k: i for i, k in enumerate(circle_of_fifths_major)}
-        def key_from_path(p):
-            base = os.path.basename(p)
-            for key_sig in circle_of_fifths_major:
-                safe_key = key_sig.replace("#", "sharp")
-                if base.startswith(safe_key + ".") or base.startswith(safe_key + "_"):
-                    return key_sig
-            return ""
-        current_octave_paths.sort(key=lambda p: order_index.get(key_from_path(p), 999))
+                for m in scale_measures:
+                    part.append(m)
 
-        # Create PDF pages
-        pages = []
-        current_page = Image.new("RGB", (PAGE_WIDTH, PAGE_HEIGHT), "white")
-        draw = ImageDraw.Draw(current_page)
+                scales_score = stream.Score([part])
 
-        title_font_size = 150
-        try:
-            font = ImageFont.truetype("arialbd.ttf", title_font_size)
-        except IOError:
-            try:
-                font = ImageFont.truetype("arial.ttf", title_font_size)
-            except IOError:
-                font = ImageFont.load_default()
-        current_y = PADDING 
+                safe_key_sig = key_sig.replace("#", "sharp").replace("b", "flat")  # Ensuring flats are handled
+                png_filename = f"{safe_key_sig}.png"
+                png_path = os.path.join(octave_folder, png_filename)
+                scales_score.write('musicxml.png', fp=png_path)
 
-        for path in current_octave_paths:
-            try:
-                with Image.open(path) as img:
-                    if img.mode in ("RGBA", "LA") or ("transparency" in img.info):
-                        background = Image.new("RGB", img.size, (255, 255, 255))
-                        if img.mode in ("RGBA", "LA"):
-                            background.paste(img, mask=img.split()[3])
-                        else:
-                            background.paste(img)
-                        final_img = background
+                if not os.path.exists(png_path):
+                    base_name, ext = os.path.splitext(png_path)
+                    alt_path = f"{base_name}-1{ext}"
+                    if os.path.exists(alt_path):
+                        shutil.move(alt_path, png_path)
+                        print(f"Renamed {alt_path} to {png_path}")
                     else:
-                        final_img = img.convert("RGB")
+                        print(f"Warning: Could not find {png_path} or {alt_path}!")
+                        continue
 
-                    if final_img.width > USABLE_WIDTH:
-                        ratio = USABLE_WIDTH / final_img.width
-                        new_width = int(final_img.width * ratio)
-                        new_height = int(final_img.height * ratio)
-                        final_img = final_img.resize(
-                            (new_width, new_height), 
-                            resample=Image.Resampling.LANCZOS
-                        )
-            except Exception as e:
-                print(f"Error opening image {path}: {e}")
-                continue
+                print(f"Created PNG: {png_path}")
+                current_octave_paths.append(png_path)
 
-            if current_y + final_img.height > PAGE_HEIGHT - PADDING:
-                pages.append(current_page)
-                current_page = Image.new("RGB", (PAGE_WIDTH, PAGE_HEIGHT), "white")
-                draw = ImageDraw.Draw(current_page)
-                current_y = PADDING
+            # Sort the PNG files based on the circle of fifths
+            order_index = {k: i for i, k in enumerate(circle_of_fifths_major)}
+            def key_from_path(p):
+                base = os.path.basename(p)
+                for key_sig in circle_of_fifths_major:
+                    safe_key = key_sig.replace("#", "sharp").replace("b", "flat")
+                    if base.startswith(safe_key + ".") or base.startswith(safe_key + "_"):
+                        return key_sig
+                return ""
+            current_octave_paths.sort(key=lambda p: order_index.get(key_from_path(p), 999))
 
-            current_page.paste(final_img, (PADDING, current_y))
-            current_y += final_img.height + SPACING
+            # Create combined.png by stacking all scale images vertically
+            combined_png_path = os.path.join(octave_folder, "combined.png")
+            combine_scale_images_vertically(current_octave_paths, combined_png_path)
+            print(f"Combined PNG created at: {combined_png_path}")
 
-        if current_y > PADDING:
-            pages.append(current_page)
+            # Optionally, you can also create a PDF where each scale is on its own page
+            # Uncomment the following block if you want to generate PDFs as well
 
-        # Save combined PDF
-        combined_pdf_path = os.path.join(octave_folder, "combined.pdf")
-        if pages:
-            pages[0].save(
-                combined_pdf_path,
-                "PDF",
-                save_all=True,
-                append_images=pages[1:],
-                resolution=DPI
-            )
-            print(f"PDF created at: {combined_pdf_path}")
-        else:
-            print(f"No pages to save into PDF for folder {octave_folder}.")
+            """
+            pages = []
+            for path in current_octave_paths:
+                try:
+                    with Image.open(path) as img:
+                        if img.mode in ("RGBA", "LA") or ("transparency" in img.info):
+                            background = Image.new("RGB", img.size, (255, 255, 255))
+                            if img.mode in ("RGBA", "LA"):
+                                background.paste(img, mask=img.split()[3])
+                            else:
+                                background.paste(img)
+                            final_img = background
+                        else:
+                            final_img = img.convert("RGB")
 
-        # Save individual pages as PNG
-        combine_folder = os.path.join(octave_folder, "combine")
-        os.makedirs(combine_folder, exist_ok=True)
-        for idx, page in enumerate(pages, start=1):
-            page_filename = f"page{idx}.png"
-            page_path = os.path.join(combine_folder, page_filename)
-            page.save(page_path, "PNG")
-            print(f"Saved {page_path}")
+                        # Resize image to fit page width if necessary
+                        if final_img.width > USABLE_WIDTH:
+                            ratio = USABLE_WIDTH / final_img.width
+                            new_width = int(final_img.width * ratio)
+                            new_height = int(final_img.height * ratio)
+                            final_img = final_img.resize(
+                                (new_width, new_height), 
+                                resample=Image.Resampling.LANCZOS
+                            )
 
-    # End of generate_scales_for_instrument
+                        pages.append(final_img)
+                except Exception as e:
+                    print(f"Error opening image {path}: {e}")
 
-# Example usage
-if __name__ == "__main__":
-    # Example: Generate scales for the Violin and Flute
-    instruments_to_generate = ["Violin", "Flute"]
-    for instrument in instruments_to_generate:
-        try:
-            generate_scales_for_instrument(
-                instrument_name=instrument,
-                output_folder="output2",
-                base_start_octave=3,
-                max_octaves=2
-            )
-        except ValueError as ve:
-            print(ve)
+            if pages:
+                pdf_path = os.path.join(octave_folder, "combined.pdf")
+                try:
+                    pages[0].save(
+                        pdf_path,
+                        "PDF",
+                        save_all=True,
+                        append_images=pages[1:],
+                        resolution=DPI
+                    )
+                    print(f"PDF created at: {pdf_path}")
+                except Exception as e:
+                    print(f"Error saving PDF {pdf_path}: {e}")
+            else:
+                print(f"No images found to create PDF in folder {octave_folder}.")
+            """
+
+            # Increment octave_count for next iteration
+            octave_count += 1
