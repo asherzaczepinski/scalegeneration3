@@ -117,9 +117,10 @@ if __name__ == "__main__":
     # Define output directories
     output_folder = os.path.join(base_output_folder, "output")
     output2_folder = os.path.join(base_output_folder, "output2")
+    output3_folder = os.path.join(base_output_folder, "output3")  # New output3 directory
     
-    # Delete existing 'output' and 'output2' directories if they exist
-    for folder in [output_folder, output2_folder]:
+    # Delete existing 'output', 'output2', and 'output3' directories if they exist
+    for folder in [output_folder, output2_folder, output3_folder]:
         if os.path.exists(folder):
             try:
                 shutil.rmtree(folder)
@@ -356,57 +357,10 @@ if __name__ == "__main__":
                 page = Image.new("RGB", (PAGE_WIDTH, PAGE_HEIGHT), "white")
                 
                 # ------------------------------
-                # Removed the following block to eliminate additional text:
-                # Add title to the left of the scale image
+                # Removed the additional text drawing as per previous modification
                 # ------------------------------
-                # draw2 = ImageDraw.Draw(page)
-                # title_font_size = 50
-                # try:
-                #     font_path = "arialbd.ttf"
-                #     if not os.path.exists(font_path):
-                #         font_path = "/Library/Fonts/Arial Bold.ttf"  # Common path on Mac
-                #         if not os.path.exists(font_path):
-                #             raise IOError
-                #     title_font = ImageFont.truetype(font_path, title_font_size)
-                # except IOError:
-                #     try:
-                #         font_path = "arial.ttf"
-                #         if not os.path.exists(font_path):
-                #             font_path = "/Library/Fonts/Arial.ttf"  # Common path on Mac
-                #             if not os.path.exists(font_path):
-                #                 raise IOError
-                #         title_font = ImageFont.truetype(font_path, title_font_size)
-                #     except IOError:
-                #         print("Warning: Could not find the specified font. Using default font.")
-                #         title_font = ImageFont.load_default()
                 
-                # # Extract title from the PNG filename
-                # base_name = os.path.splitext(os.path.basename(path))[0]
-                # title_text = f"{base_name.replace('sharp', '#')} Major Scale"
-
-                # # Use textbbox instead of textsize
-                # try:
-                #     bbox = draw2.textbbox((0, 0), title_text, font=title_font)
-                #     text_width = bbox[2] - bbox[0]
-                #     text_height = bbox[3] - bbox[1]
-                # except AttributeError:
-                #     # Fallback for older PIL versions
-                #     text_width, text_height = draw2.textsize(title_text, font=title_font)
-
-                # # Define positions
-                # text_x = PADDING
-                # text_y = PADDING  # Align text at the top with padding
-
-                # # Draw the title text
-                # draw2.text((text_x, text_y), title_text, fill="black", font=title_font)
-
-                # # Calculate position to paste the image next to the text
-                # img_x = PADDING + text_width + 40  # 40 pixels spacing between text and image
-                # img_y = PADDING  # Align image at the top with padding
-
-                # ------------------------------
                 # Instead, paste the scale image directly with padding
-                # ------------------------------
                 img_x = PADDING
                 img_y = PADDING  # Align image at the top with padding
 
@@ -431,6 +385,24 @@ if __name__ == "__main__":
                     print(f"Error saving PDF {combined_pdf_path2}: {e}")
             else:
                 print(f"No pages to save into PDF for folder {octave_folder2}.")
+
+            # ------------------------------
+            # Copy and Rename combined.pdf to output3
+            # ------------------------------
+            try:
+                # Ensure output3 directory exists
+                os.makedirs(output3_folder, exist_ok=True)
+
+                # Create a safe filename: lowercase, replace spaces with underscores
+                instrument_safe = instrument_name.lower().replace(" ", "_")
+                new_filename = f"{instrument_safe}_{octave_count}.pdf"
+                new_pdf_path = os.path.join(output3_folder, new_filename)
+
+                # Copy the combined.pdf to output3 with the new name
+                shutil.copy(combined_pdf_path2, new_pdf_path)
+                print(f"Copied to output3: {new_pdf_path}")
+            except Exception as e:
+                print(f"Error copying to output3: {e}")
 
             # Optionally, save each page as separate PNGs in output2
             combine_folder2 = os.path.join(octave_folder2, "combine")
