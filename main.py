@@ -196,7 +196,7 @@ if __name__ == "__main__":
             "highest": pitch.Pitch("D6"),
         },
         "Tuba": {
-            "lowest": pitch.Pitch("C3"),
+            "lowest": pitch.Pitch("E1"),
             "highest": pitch.Pitch("Bb4"),
         },
     }
