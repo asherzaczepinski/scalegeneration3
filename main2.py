@@ -2,7 +2,7 @@ import os
 import shutil
 from music21 import (
     stream, note, key, scale, clef, layout,
-    environment, expressions, duration, pitch
+    environment, expressions, articulations, duration, pitch
 )
 from PIL import Image, ImageDraw, ImageFont
 
@@ -58,7 +58,7 @@ def determine_clef(instrument_name):
     }
     return instrument_map.get(instrument_name, "TrebleClef")
 
-def create_scale_measures(title_text, scale_object, start_octave, num_octaves, instrument_name="Violin"):
+def create_scale_measures(title_text, scale_object, start_octave, num_octaves, instrument_name="Violin", instrument_lowest_pitch=None):
     measures_stream = stream.Stream()
     lower_pitch = f"{scale_object.tonic.name}{start_octave}"
     upper_pitch = f"{scale_object.tonic.name}{start_octave + num_octaves}"
@@ -78,12 +78,19 @@ def create_scale_measures(title_text, scale_object, start_octave, num_octaves, i
                 measures_stream.append(current_measure)
             m_whole = stream.Measure()
             if i == 0:
-                txt = expressions.TextExpression(title_text)
+                txt = expressions.TextExpression(title_text)  # Corrected here
                 txt.placement = 'above'
                 m_whole.insert(0, txt)
             n = note.Note(p)
             n.duration = duration.Duration('whole')
             fix_enharmonic_spelling(n)
+            
+            # Assign fingering number
+            fingering_number = n.pitch.midi - instrument_lowest_pitch.midi + 1
+            fingering_articulation = articulations.Fingering(str(fingering_number))
+            fingering_articulation.position = 'above'  # Set to 'above' as per your preference
+            n.articulations.append(fingering_articulation)
+            
             m_whole.append(n)
             measures_stream.append(m_whole)
             break
@@ -94,17 +101,31 @@ def create_scale_measures(title_text, scale_object, start_octave, num_octaves, i
                 measures_stream.append(current_measure)
             current_measure = stream.Measure()
             if i == 0:
-                txt = expressions.TextExpression(title_text)
+                txt = expressions.TextExpression(title_text)  # Corrected here
                 txt.placement = 'above'
                 current_measure.insert(0, txt)
             n = note.Note(p)
             n.duration = duration.Duration('quarter')
             fix_enharmonic_spelling(n)
+            
+            # Assign fingering number
+            fingering_number = n.pitch.midi - instrument_lowest_pitch.midi + 1
+            fingering_articulation = articulations.Fingering(str(fingering_number))
+            fingering_articulation.position = 'above'  # Set to 'above' as per your preference
+            n.articulations.append(fingering_articulation)
+            
             current_measure.append(n)
         else:
             n = note.Note(p)
             n.duration = duration.Duration('eighth')
             fix_enharmonic_spelling(n)
+            
+            # Assign fingering number
+            fingering_number = n.pitch.midi - instrument_lowest_pitch.midi + 1
+            fingering_articulation = articulations.Fingering(str(fingering_number))
+            fingering_articulation.position = 'above'  # Set to 'above' as per your preference
+            n.articulations.append(fingering_articulation)
+            
             current_measure.append(n)
         note_counter += 1
 
@@ -190,10 +211,6 @@ if __name__ == "__main__":
         },
     }
     all_instruments = [
-        "Violin", 
-        "Viola", 
-        "Cello", 
-        "Double Bass",
         "Bass Clarinet", 
         "Alto Saxophone", 
         "Bassoon", 
@@ -278,7 +295,8 @@ if __name__ == "__main__":
                     scale_object=major_scale_obj,
                     start_octave=start_octave,
                     num_octaves=octave_count,
-                    instrument_name=instrument_name
+                    instrument_name=instrument_name,
+                    instrument_lowest_pitch=instrument_lowest  # Pass the lowest pitch
                 )
 
                 if not scale_measures:
@@ -356,11 +374,7 @@ if __name__ == "__main__":
                 # Create a new blank page
                 page = Image.new("RGB", (PAGE_WIDTH, PAGE_HEIGHT), "white")
                 
-                # ------------------------------
-                # Removed the additional text drawing as per previous modification
-                # ------------------------------
-                
-                # Instead, paste the scale image directly with padding
+                # Instead of additional text drawing, paste the scale image directly with padding
                 img_x = PADDING
                 img_y = PADDING  # Align image at the top with padding
 
