@@ -58,10 +58,10 @@ def determine_clef(instrument_name):
     }
     return instrument_map.get(instrument_name, "TrebleClef")
 
-def create_scale_measures(title_text, scale_object, start_octave, num_octaves, instrument_name="Violin"):
+def create_scale_measures(title_text, scale_object, start_octave, max_high_octave_adjust, instrument_name="Violin"):
     measures_stream = stream.Stream()
     lower_pitch = f"{scale_object.tonic.name}{start_octave}"
-    upper_pitch = f"{scale_object.tonic.name}{start_octave + num_octaves}"
+    upper_pitch = f"{scale_object.tonic.name}{start_octave + max_high_octave_adjust}"
 
     pitches_up = scale_object.getPitches(lower_pitch, upper_pitch)
     pitches_down = list(reversed(pitches_up[:-1]))
@@ -111,8 +111,14 @@ def create_scale_measures(title_text, scale_object, start_octave, num_octaves, i
     return measures_stream
 
 if __name__ == "__main__":
+    # ------------------------------------------------------------------------
+    # Configuration Parameters
+    # ------------------------------------------------------------------------
+    # List of octave counts to generate. Adjust this list as needed.
+    OCTAVE_COUNTS = [1, 2]
+
     # Setup output directory
-    output_folder = "/Users/az/Desktop/scalegeneration3/output"
+    output_folder = "/Users/az/Desktop/Sheet Scan/scalegeneration3/output"
     if os.path.exists(output_folder):
         shutil.rmtree(output_folder)
     os.makedirs(output_folder, exist_ok=True)
@@ -203,8 +209,6 @@ if __name__ == "__main__":
     SPACING = 350
     USABLE_WIDTH = PAGE_WIDTH - 2 * PADDING
 
-    MAX_OCTAVES = 2
-
     for instrument_name in all_instruments:
         print("=" * 70)
         print(f"Processing instrument: {instrument_name}")
@@ -221,10 +225,9 @@ if __name__ == "__main__":
 
         selected_clef = determine_clef(instrument_name)
 
-        octave_count = 1
-
-        while octave_count <= MAX_OCTAVES:
-            print(f"Generating scales for {octave_count} octave(s) on {instrument_name}...")
+        # Loop over each octave count (1 and 2)
+        for octave_count in OCTAVE_COUNTS:
+            print(f"Generating scales for {octave_count} octave{'s' if octave_count > 1 else ''} on {instrument_name}...")
 
             octave_label = f"{octave_count}_octave" if octave_count == 1 else f"{octave_count}_octaves"
             octave_folder = os.path.join(instrument_folder, octave_label)
@@ -255,12 +258,12 @@ if __name__ == "__main__":
                 part.insert(0, layout.SystemLayout(isNew=True))
                 part.insert(0, getattr(clef, selected_clef)())
 
-                title_text = f"{instrument_name} - {key_sig} Major - {octave_count} octave{'s' if octave_count>1 else ''}"
+                title_text = f"{instrument_name} - {key_sig} Major - {octave_count} octave{'s' if octave_count > 1 else ''}"
                 scale_measures = create_scale_measures(
                     title_text=title_text,
                     scale_object=major_scale_obj,
                     start_octave=start_octave,
-                    num_octaves=octave_count,
+                    max_high_octave_adjust=octave_count,
                     instrument_name=instrument_name
                 )
 
@@ -292,6 +295,7 @@ if __name__ == "__main__":
                 print(f"Created PNG: {png_path}")
                 current_octave_paths.append(png_path)
 
+            # Sort the current_octave_paths based on the circle of fifths
             order_index = {k: i for i, k in enumerate(circle_of_fifths_major)}
             def key_from_path(p):
                 base = os.path.basename(p)
@@ -374,4 +378,4 @@ if __name__ == "__main__":
                 page.save(page_path, "PNG")
                 print(f"Saved {page_path}")
 
-            octave_count += 1
+        print(f"Completed processing for {instrument_name}.\n")
