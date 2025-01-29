@@ -119,12 +119,12 @@ if __name__ == "__main__":
     # Setup output directory
     base_output_folder = "/Users/az/Desktop/Sheet Scan/scalegeneration3"
     output_folder = os.path.join(base_output_folder, "output")
-    if os.path.exists(output_folder):
+    """ if os.path.exists(output_folder):
         shutil.rmtree(output_folder)
         print(f"Deleted existing folder: {output_folder}")
     os.makedirs(output_folder, exist_ok=True)
     print(f"Created folder: {output_folder}")
-
+    """
     # Circle of fifths order for major keys
     circle_of_fifths_major = ["C", "G", "D", "A", "E", "B", "F#", "C#", "Ab", "Eb", "Bb", "F"]
     all_key_signatures = circle_of_fifths_major
@@ -201,23 +201,8 @@ if __name__ == "__main__":
         },
     }
     all_instruments = [
-        "Violin", 
-        "Viola", 
-        "Cello", 
         "Double Bass",
-        "Bass Clarinet", 
-        "Alto Saxophone", 
-        "Bassoon", 
-        "Clarinet",
-        "Euphonium", 
-        "Flute", 
-        "French Horn", 
-        "Oboe",
-        "Piccolo", 
         "Tenor Saxophone", 
-        "Trombone", 
-        "Trumpet", 
-        "Tuba"
     ]
     base_start_octave = 3
 
