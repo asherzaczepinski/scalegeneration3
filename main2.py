@@ -140,7 +140,7 @@ if __name__ == "__main__":
     output2_folder = os.path.join(base_output_folder, "output2")
     output3_folder = os.path.join(base_output_folder, "output3")  # New output3 directory
     
-    # Delete existing 'output', 'output2', and 'output3' directories if they exist
+    """  # Delete existing 'output', 'output2', and 'output3' directories if they exist
     for folder in [output_folder, output2_folder, output3_folder]:
         if os.path.exists(folder):
             try:
@@ -149,7 +149,7 @@ if __name__ == "__main__":
             except Exception as e:
                 print(f"Error deleting folder {folder}: {e}")
         os.makedirs(folder, exist_ok=True)
-        print(f"Created folder: {folder}")
+        print(f"Created folder: {folder}") """
 
     # Circle of fifths order for major keys
     circle_of_fifths_major = ["C", "G", "D", "A", "E", "B", "F#", "C#", "Ab", "Eb", "Bb", "F"]
@@ -211,19 +211,9 @@ if __name__ == "__main__":
         },
     }
     all_instruments = [
-        "Bass Clarinet", 
-        "Alto Saxophone", 
-        "Bassoon", 
-        "Clarinet",
-        "Euphonium", 
-        "Flute", 
+        
         "French Horn", 
-        "Oboe",
-        "Piccolo", 
-        "Tenor Saxophone", 
-        "Trombone", 
-        "Trumpet", 
-        "Tuba"
+        
     ]
     base_start_octave = 3
 
