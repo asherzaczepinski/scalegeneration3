@@ -58,7 +58,7 @@ def determine_clef(instrument_name):
     }
     return instrument_map.get(instrument_name, "TrebleClef")
 
-def create_scale_measures(title_text, scale_object, start_octave, max_high_octave_adjust, instrument_name="Violin"):
+def create_scale_measures(title_text, scale_object, start_octave, max_high_octave_adjust, instrument_highest, instrument_name="Violin"):
     measures_stream = stream.Stream()
     lower_pitch = f"{scale_object.tonic.name}{start_octave}"
     upper_pitch = f"{scale_object.tonic.name}{start_octave + max_high_octave_adjust}"
@@ -114,14 +114,16 @@ if __name__ == "__main__":
     # ------------------------------------------------------------------------
     # Configuration Parameters
     # ------------------------------------------------------------------------
-    # List of octave counts to generate. Adjust this list as needed.
-    OCTAVE_COUNTS = [1, 2]
+    # Removed the fixed OCTAVE_COUNTS list
 
     # Setup output directory
-    output_folder = "/Users/az/Desktop/Sheet Scan/scalegeneration3/output"
+    base_output_folder = "/Users/az/Desktop/Sheet Scan/scalegeneration3"
+    output_folder = os.path.join(base_output_folder, "output")
     if os.path.exists(output_folder):
         shutil.rmtree(output_folder)
+        print(f"Deleted existing folder: {output_folder}")
     os.makedirs(output_folder, exist_ok=True)
+    print(f"Created folder: {output_folder}")
 
     # Circle of fifths order for major keys
     circle_of_fifths_major = ["C", "G", "D", "A", "E", "B", "F#", "C#", "Ab", "Eb", "Bb", "F"]
@@ -130,75 +132,77 @@ if __name__ == "__main__":
     instrument_settings = {
         "Violin": {
             "lowest": pitch.Pitch("G3"),
+            "highest": pitch.Pitch("A7"),  # Added highest pitch
         },
         "Viola": {
             "lowest": pitch.Pitch("C3"),
+            "highest": pitch.Pitch("E6"),  # Added highest pitch
         },
         "Cello": {
             "lowest": pitch.Pitch("C2"),
+            "highest": pitch.Pitch("C6"),  # Added highest pitch
         },
         "Double Bass": {
-            "lowest": pitch.Pitch("E2"),
+            "lowest": pitch.Pitch("E1"),
+            "highest": pitch.Pitch("G4"),  # Added highest pitch
         },
-        # Added Instruments
+        # Added Instruments with highest pitches
         "Bass Clarinet": {
             "lowest": pitch.Pitch("E3"),  # B♭2
+            "highest": pitch.Pitch("C7"),  # Approximate
         },
         "Alto Saxophone": {
             "lowest": pitch.Pitch("C4"),
+            "highest": pitch.Pitch("F6"),
         },
         "Bassoon": {
             "lowest": pitch.Pitch("B1"),
+            "highest": pitch.Pitch("E5"),
         },
         "Clarinet": {
             "lowest": pitch.Pitch("E3"),  # Assuming B♭ Clarinet
+            "highest": pitch.Pitch("G6"),
         },
         "Euphonium": {
             "lowest": pitch.Pitch("E2"),
+            "highest": pitch.Pitch("C5"),
         },
         "Flute": {
             "lowest": pitch.Pitch("C4"),
+            "highest": pitch.Pitch("C7"),
         },
         "French Horn": {
             "lowest": pitch.Pitch("F3"),
+            "highest": pitch.Pitch("D6"),
         },
         "Oboe": {
             "lowest": pitch.Pitch("Bb3"),
+            "highest": pitch.Pitch("A6"),
         },
         "Piccolo": {
             "lowest": pitch.Pitch("D5"),
+            "highest": pitch.Pitch("D8"),
         },
         "Tenor Saxophone": {
             "lowest": pitch.Pitch("B2"),
+            "highest": pitch.Pitch("F6"),
         },
         "Trombone": {
             "lowest": pitch.Pitch("A2"),
+            "highest": pitch.Pitch("F5"),
         },
         "Trumpet": {
             "lowest": pitch.Pitch("F#3"),
+            "highest": pitch.Pitch("D6"),
         },
         "Tuba": {
             "lowest": pitch.Pitch("C3"),
+            "highest": pitch.Pitch("Bb4"),
         },
     }
     all_instruments = [
-        "Violin", 
-        "Viola", 
-        "Cello", 
-        "Double Bass",
-        "Bass Clarinet", 
-        "Alto Saxophone", 
-        "Bassoon", 
         "Clarinet",
-        "Euphonium", 
-        "Flute", 
-        "French Horn", 
-        "Oboe",
-        "Piccolo", 
-        "Tenor Saxophone", 
-        "Trombone", 
-        "Trumpet", 
-        "Tuba"
+        # Add other instruments as needed
     ]
     base_start_octave = 3
 
@@ -220,20 +224,26 @@ if __name__ == "__main__":
             continue
 
         instrument_lowest = settings["lowest"]
+        instrument_highest = settings["highest"]  # Retrieve highest pitch
         instrument_folder = os.path.join(output_folder, instrument_name.replace(" ", "_"))
         os.makedirs(instrument_folder, exist_ok=True)
+        print(f"Created folder: {instrument_folder}")
 
         selected_clef = determine_clef(instrument_name)
 
-        # Loop over each octave count (1 and 2)
-        for octave_count in OCTAVE_COUNTS:
+        octave_count = 1  # Start with 1 octave
+        continue_generating = True
+
+        while continue_generating:
             print(f"Generating scales for {octave_count} octave{'s' if octave_count > 1 else ''} on {instrument_name}...")
 
             octave_label = f"{octave_count}_octave" if octave_count == 1 else f"{octave_count}_octaves"
             octave_folder = os.path.join(instrument_folder, octave_label)
             os.makedirs(octave_folder, exist_ok=True)
+            print(f"Created folder: {octave_folder}")
 
             current_octave_paths = []
+            exceeded = False  # Flag to check if any scale exceeds the highest pitch
 
             for key_sig in all_key_signatures:
                 major_key_obj = key.Key(key_sig, 'major')
@@ -254,6 +264,16 @@ if __name__ == "__main__":
                     else:
                         break
 
+                # Calculate the highest note in the scale
+                max_high_octave_adjust = octave_count
+                highest_note_pitch = pitch.Pitch(f"{major_scale_obj.tonic.name}{start_octave + max_high_octave_adjust}")
+
+                # Check if the highest note exceeds the instrument's highest pitch
+                if highest_note_pitch > instrument_highest:
+                    exceeded = True  # This octave contains scales that exceed the instrument's range
+                    print(f"Scale {key_sig} Major in octave {octave_count} exceeds the highest pitch {instrument_highest}. Skipping this scale.")
+                    continue  # Skip generating this scale
+
                 part = stream.Part()
                 part.insert(0, layout.SystemLayout(isNew=True))
                 part.insert(0, getattr(clef, selected_clef)())
@@ -263,11 +283,13 @@ if __name__ == "__main__":
                     title_text=title_text,
                     scale_object=major_scale_obj,
                     start_octave=start_octave,
-                    max_high_octave_adjust=octave_count,
+                    max_high_octave_adjust=max_high_octave_adjust,
+                    instrument_highest=instrument_highest,  # Pass highest pitch
                     instrument_name=instrument_name
                 )
 
                 if not scale_measures:
+                    print(f"No valid scales generated for {key_sig} major on {instrument_name} with {octave_count} octave{'s' if octave_count > 1 else ''}.")
                     continue
 
                 first_m = scale_measures[0]
@@ -288,12 +310,23 @@ if __name__ == "__main__":
                     alt_path = f"{base_name}-1{ext}"
                     if os.path.exists(alt_path):
                         shutil.move(alt_path, png_path)
+                        print(f"Moved alternative PNG to: {png_path}")
                     else:
                         print(f"Warning: Could not find {png_path} or {alt_path}!")
                         continue
 
                 print(f"Created PNG: {png_path}")
                 current_octave_paths.append(png_path)
+
+            # After processing all scales in the current octave
+            # If any scale was skipped due to exceeding the range, stop generating further octaves
+            if exceeded:
+                print(f"Reached the maximum octave for {instrument_name} where some scales exceed the highest playable pitch.")
+                # Even though some scales were skipped, proceed to generate PDF with the included scales
+                # No need to set `continue_generating` to False explicitly as we'll break out of the loop
+                # after processing the current octave
+            else:
+                print(f"All scales fit within the range for octave {octave_count} on {instrument_name}.")
 
             # Sort the current_octave_paths based on the circle of fifths
             order_index = {k: i for i, k in enumerate(circle_of_fifths_major)}
@@ -359,23 +392,37 @@ if __name__ == "__main__":
 
             combined_pdf_path = os.path.join(octave_folder, "combined.pdf")
             if pages:
-                pages[0].save(
-                    combined_pdf_path,
-                    "PDF",
-                    save_all=True,
-                    append_images=pages[1:],
-                    resolution=DPI
-                )
-                print(f"PDF created at: {combined_pdf_path}")
+                try:
+                    pages[0].save(
+                        combined_pdf_path,
+                        "PDF",
+                        save_all=True,
+                        append_images=pages[1:],
+                        resolution=DPI
+                    )
+                    print(f"PDF created at: {combined_pdf_path}")
+                except Exception as e:
+                    print(f"Error saving PDF {combined_pdf_path}: {e}")
             else:
                 print(f"No pages to save into PDF for folder {octave_folder}.")
 
+            # Optionally, save each page as separate PNGs in a 'combine' subfolder
             combine_folder = os.path.join(octave_folder, "combine")
             os.makedirs(combine_folder, exist_ok=True)
             for idx, page in enumerate(pages, start=1):
                 page_filename = f"page{idx}.png"
                 page_path = os.path.join(combine_folder, page_filename)
-                page.save(page_path, "PNG")
-                print(f"Saved {page_path}")
+                try:
+                    page.save(page_path, "PNG")
+                    print(f"Saved {page_path}")
+                except Exception as e:
+                    print(f"Error saving image {page_path}: {e}")
+
+            # Check if the current octave exceeded the highest pitch
+            if exceeded:
+                print(f"Stopping further octave generation for {instrument_name} as some scales in octave {octave_count} exceed the highest playable pitch.")
+                break  # Stop generating further octaves
+
+            octave_count += 1  # Increment octave count for the next iteration
 
         print(f"Completed processing for {instrument_name}.\n")
