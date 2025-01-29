@@ -143,7 +143,7 @@ if __name__ == "__main__":
             "highest": pitch.Pitch("C6"),  # Added highest pitch
         },
         "Double Bass": {
-            "lowest": pitch.Pitch("E1"),
+            "lowest": pitch.Pitch("E2"),
             "highest": pitch.Pitch("G4"),  # Added highest pitch
         },
         # Added Instruments with highest pitches
@@ -184,7 +184,7 @@ if __name__ == "__main__":
             "highest": pitch.Pitch("D8"),
         },
         "Tenor Saxophone": {
-            "lowest": pitch.Pitch("B2"),
+            "lowest": pitch.Pitch("C4"),
             "highest": pitch.Pitch("F6"),
         },
         "Trombone": {
@@ -201,7 +201,6 @@ if __name__ == "__main__":
         },
     }
     all_instruments = [
-        "Double Bass",
         "Tenor Saxophone", 
     ]
     base_start_octave = 3
