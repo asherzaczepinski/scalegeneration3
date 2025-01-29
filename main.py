@@ -110,24 +110,61 @@ def create_scale_measures(title_text, scale_object, start_octave, max_high_octav
 
     return measures_stream
 
+def get_fingering_image_filename(instrument_name):
+    """
+    Map the instrument name to the fingering image filename.
+    Modify this function if your fingering images have different naming conventions.
+    """
+    mapping = {
+        "Alto Saxophone": "Alto Sax.jpg",
+        "Bass Clarinet": "Bass Clarinet.jpg",
+        # Add more mappings as needed
+    }
+    return mapping.get(instrument_name, f"{instrument_name}.jpg")
+
 if __name__ == "__main__":
     # ------------------------------------------------------------------------
     # Configuration Parameters
     # ------------------------------------------------------------------------
     # Removed the fixed OCTAVE_COUNTS list
 
-    # Setup output directory
+    # Setup output directories
     base_output_folder = "/Users/az/Desktop/Sheet Scan/scalegeneration3"
     output_folder = os.path.join(base_output_folder, "output")
-    """ if os.path.exists(output_folder):
+    output2_folder = os.path.join(base_output_folder, "output2")  # New output2 folder
+
+    # Create output folder
+    if os.path.exists(output_folder):
         shutil.rmtree(output_folder)
         print(f"Deleted existing folder: {output_folder}")
     os.makedirs(output_folder, exist_ok=True)
     print(f"Created folder: {output_folder}")
-    """
-    # Circle of fifths order for major keys
-    circle_of_fifths_major = ["C", "G", "D", "A", "E", "B", "F#", "C#", "Ab", "Eb", "Bb", "F"]
-    all_key_signatures = circle_of_fifths_major
+
+    # Create output2 folder
+    if os.path.exists(output2_folder):
+        shutil.rmtree(output2_folder)
+        print(f"Deleted existing folder: {output2_folder}")
+    os.makedirs(output2_folder, exist_ok=True)
+    print(f"Created folder: {output2_folder}")
+
+    # ------------------------------------------------------------------------
+    # Updated Order: No Sharps/Flats, 1 Sharp, 1 Flat, 2 Sharps, 2 Flats, etc.
+    # ------------------------------------------------------------------------
+    all_key_signatures = [
+        "C",    # No sharps/flats
+        "G",    # 1 Sharp
+        "F",    # 1 Flat
+        "D",    # 2 Sharps
+        "Bb",   # 2 Flats
+        "A",    # 3 Sharps
+        "Eb",   # 3 Flats
+        "E",    # 4 Sharps
+        "Ab",   # 4 Flats
+        "B",    # 5 Sharps
+        "Db",   # 5 Flats
+        "F#"    # 6 Sharps
+        # "C#"    # 7 Sharps (optional)
+    ]
 
     instrument_settings = {
         "Violin": {
@@ -228,6 +265,9 @@ if __name__ == "__main__":
     SPACING = 350
     USABLE_WIDTH = PAGE_WIDTH - 2 * PADDING
 
+    # Define the fingerings folder
+    fingerings_folder = os.path.join(base_output_folder, "fingerings")
+
     for instrument_name in all_instruments:
         print("=" * 70)
         print(f"Processing instrument: {instrument_name}")
@@ -244,6 +284,11 @@ if __name__ == "__main__":
         os.makedirs(instrument_folder, exist_ok=True)
         print(f"Created folder: {instrument_folder}")
 
+        # Setup corresponding folder in output2
+        instrument_folder_output2 = os.path.join(output2_folder, instrument_name.replace(" ", "_"))
+        os.makedirs(instrument_folder_output2, exist_ok=True)
+        print(f"Created folder in output2: {instrument_folder_output2}")
+
         selected_clef = determine_clef(instrument_name)
 
         octave_count = 1  # Start with 1 octave
@@ -256,6 +301,11 @@ if __name__ == "__main__":
             octave_folder = os.path.join(instrument_folder, octave_label)
             os.makedirs(octave_folder, exist_ok=True)
             print(f"Created folder: {octave_folder}")
+
+            # Setup corresponding octave folder in output2
+            octave_folder_output2 = os.path.join(instrument_folder_output2, octave_label)
+            os.makedirs(octave_folder_output2, exist_ok=True)
+            print(f"Created folder in output2: {octave_folder_output2}")
 
             current_octave_paths = []
             exceeded = False  # Flag to check if any scale exceeds the highest pitch
@@ -343,11 +393,11 @@ if __name__ == "__main__":
             else:
                 print(f"All scales fit within the range for octave {octave_count} on {instrument_name}.")
 
-            # Sort the current_octave_paths based on the circle of fifths
-            order_index = {k: i for i, k in enumerate(circle_of_fifths_major)}
+            # Sort the current_octave_paths based on the new all_key_signatures order
+            order_index = {k: i for i, k in enumerate(all_key_signatures)}
             def key_from_path(p):
                 base = os.path.basename(p)
-                for key_sig in circle_of_fifths_major:
+                for key_sig in all_key_signatures:
                     safe_key = key_sig.replace("#", "sharp")
                     if base.startswith(safe_key + ".") or base.startswith(safe_key + "_"):
                         return key_sig
@@ -357,7 +407,6 @@ if __name__ == "__main__":
             pages = []
             current_page = Image.new("RGB", (PAGE_WIDTH, PAGE_HEIGHT), "white")
             draw = ImageDraw.Draw(current_page)
-
             title_font_size = 150
             try:
                 font = ImageFont.truetype("arialbd.ttf", title_font_size)
@@ -405,6 +454,41 @@ if __name__ == "__main__":
             if current_y > PADDING:
                 pages.append(current_page)
 
+            # --------------------------------------------
+            # Add Fingering Image as the Last Page
+            # --------------------------------------------
+            fingering_image_filename = get_fingering_image_filename(instrument_name)
+            fingering_image_path = os.path.join(fingerings_folder, fingering_image_filename)
+
+            if os.path.exists(fingering_image_path):
+                try:
+                    with Image.open(fingering_image_path) as fing_img:
+                        if fing_img.mode in ("RGBA", "LA") or ("transparency" in fing_img.info):
+                            background = Image.new("RGB", fing_img.size, (255, 255, 255))
+                            if fing_img.mode in ("RGBA", "LA"):
+                                background.paste(fing_img, mask=fing_img.split()[3])
+                            else:
+                                background.paste(fing_img)
+                            fingering_final_img = background
+                        else:
+                            fingering_final_img = fing_img.convert("RGB")
+
+                        # Resize the fingering image to fit the page if necessary
+                        if fingering_final_img.width != PAGE_WIDTH or fingering_final_img.height != PAGE_HEIGHT:
+                            fingering_final_img = fingering_final_img.resize(
+                                (PAGE_WIDTH, PAGE_HEIGHT), 
+                                resample=Image.Resampling.LANCZOS
+                            )
+
+                        pages.append(fingering_final_img)
+                        print(f"Added fingering image to the pages: {fingering_image_path}")
+                except Exception as e:
+                    print(f"Error processing fingering image {fingering_image_path}: {e}")
+            else:
+                print(f"No fingering image found for {instrument_name} at {fingering_image_path}. Skipping fingering image.")
+
+            # --------------------------------------------
+
             combined_pdf_path = os.path.join(octave_folder, "combined.pdf")
             if pages:
                 try:
@@ -420,6 +504,14 @@ if __name__ == "__main__":
                     print(f"Error saving PDF {combined_pdf_path}: {e}")
             else:
                 print(f"No pages to save into PDF for folder {octave_folder}.")
+
+            # Copy combined.pdf to output2
+            combined_pdf_output2 = os.path.join(octave_folder_output2, "combined.pdf")
+            try:
+                shutil.copy(combined_pdf_path, combined_pdf_output2)
+                print(f"Copied combined PDF to: {combined_pdf_output2}")
+            except Exception as e:
+                print(f"Error copying combined PDF to output2: {e}")
 
             # Optionally, save each page as separate PNGs in a 'combine' subfolder
             combine_folder = os.path.join(octave_folder, "combine")
