@@ -201,8 +201,23 @@ if __name__ == "__main__":
         },
     }
     all_instruments = [
+        "Violin", 
+        "Viola", 
+        "Cello", 
+        "Double Bass",
+        "Bass Clarinet", 
+        "Alto Saxophone", 
+        "Bassoon", 
         "Clarinet",
-        # Add other instruments as needed
+        "Euphonium", 
+        "Flute", 
+        "French Horn", 
+        "Oboe",
+        "Piccolo", 
+        "Tenor Saxophone", 
+        "Trombone", 
+        "Trumpet", 
+        "Tuba"
     ]
     base_start_octave = 3
 
