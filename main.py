@@ -133,7 +133,7 @@ if __name__ == "__main__":
     output_folder = os.path.join(base_output_folder, "output")
     output2_folder = os.path.join(base_output_folder, "output2")  # New output2 folder
 
-    """ # Create output folder
+    # Create output folder
     if os.path.exists(output_folder):
         shutil.rmtree(output_folder)
         print(f"Deleted existing folder: {output_folder}")
@@ -145,7 +145,7 @@ if __name__ == "__main__":
         shutil.rmtree(output2_folder)
         print(f"Deleted existing folder: {output2_folder}")
     os.makedirs(output2_folder, exist_ok=True)
-    print(f"Created folder: {output2_folder}") """
+    print(f"Created folder: {output2_folder}")
 
     # ------------------------------------------------------------------------
     # Updated Order: No Sharps/Flats, 1 Sharp, 1 Flat, 2 Sharps, 2 Flats, etc.
