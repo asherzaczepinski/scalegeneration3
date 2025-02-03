@@ -122,13 +122,57 @@ def get_fingering_image_filename(instrument_name):
     }
     return mapping.get(instrument_name, f"{instrument_name}.jpg")
 
+def build_pages(image_paths, DPI, PAGE_WIDTH, PAGE_HEIGHT, PADDING, SPACING, USABLE_WIDTH):
+    """Given a list of image file paths (already sorted in the desired order),
+    build and return a list of page images."""
+    pages = []
+    current_page = Image.new("RGB", (PAGE_WIDTH, PAGE_HEIGHT), "white")
+    draw = ImageDraw.Draw(current_page)
+    current_y = PADDING
+
+    for path in image_paths:
+        try:
+            with Image.open(path) as img:
+                # Ensure the image is in RGB
+                if img.mode in ("RGBA", "LA") or ("transparency" in img.info):
+                    background = Image.new("RGB", img.size, (255, 255, 255))
+                    if img.mode in ("RGBA", "LA"):
+                        background.paste(img, mask=img.split()[3])
+                    else:
+                        background.paste(img)
+                    final_img = background
+                else:
+                    final_img = img.convert("RGB")
+
+                if final_img.width > USABLE_WIDTH:
+                    ratio = USABLE_WIDTH / final_img.width
+                    new_width = int(final_img.width * ratio)
+                    new_height = int(final_img.height * ratio)
+                    final_img = final_img.resize(
+                        (new_width, new_height), 
+                        resample=Image.Resampling.LANCZOS
+                    )
+        except Exception as e:
+            print(f"Error opening image {path}: {e}")
+            continue
+
+        if current_y + final_img.height > PAGE_HEIGHT - PADDING:
+            pages.append(current_page)
+            current_page = Image.new("RGB", (PAGE_WIDTH, PAGE_HEIGHT), "white")
+            draw = ImageDraw.Draw(current_page)
+            current_y = PADDING
+
+        current_page.paste(final_img, (PADDING, current_y))
+        current_y += final_img.height + SPACING
+
+    if current_y > PADDING:
+        pages.append(current_page)
+    return pages
+
 if __name__ == "__main__":
     # ------------------------------------------------------------------------
     # Configuration Parameters
     # ------------------------------------------------------------------------
-    # Removed the fixed OCTAVE_COUNTS list
-
-    # Setup output directories
     base_output_folder = "/Users/az/Desktop/Sheet Scan/scalegeneration3"
     output_folder = os.path.join(base_output_folder, "output")
     output2_folder = os.path.join(base_output_folder, "output2")  # New output2 folder
@@ -148,8 +192,9 @@ if __name__ == "__main__":
     print(f"Created folder: {output2_folder}")
 
     # ------------------------------------------------------------------------
-    # Updated Order: No Sharps/Flats, 1 Sharp, 1 Flat, 2 Sharps, 2 Flats, etc.
+    # Key Signature Orders
     # ------------------------------------------------------------------------
+    # This is the original order:
     all_key_signatures = [
         "C",    # No sharps/flats
         "G",    # 1 Sharp
@@ -163,30 +208,30 @@ if __name__ == "__main__":
         "B",    # 5 Sharps
         "Db",   # 5 Flats
         "F#"    # 6 Sharps
-        # "C#"    # 7 Sharps (optional)
     ]
+    # Circle-of-Fifths order:
+    circle_order = ["C", "G", "D", "A", "E", "B", "F#", "Db", "Ab", "Eb", "Bb", "F"]
 
     instrument_settings = {
         "Violin": {
             "lowest": pitch.Pitch("G3"),
-            "highest": pitch.Pitch("A7"),  # Added highest pitch
+            "highest": pitch.Pitch("A7"),
         },
         "Viola": {
             "lowest": pitch.Pitch("C3"),
-            "highest": pitch.Pitch("E6"),  # Added highest pitch
+            "highest": pitch.Pitch("E6"),
         },
         "Cello": {
             "lowest": pitch.Pitch("C2"),
-            "highest": pitch.Pitch("C6"),  # Added highest pitch
+            "highest": pitch.Pitch("C6"),
         },
         "Double Bass": {
             "lowest": pitch.Pitch("E2"),
-            "highest": pitch.Pitch("G4"),  # Added highest pitch
+            "highest": pitch.Pitch("G4"),
         },
-        # Added Instruments with highest pitches
         "Bass Clarinet": {
-            "lowest": pitch.Pitch("E3"),  # B♭2
-            "highest": pitch.Pitch("C7"),  # Approximate
+            "lowest": pitch.Pitch("E3"),
+            "highest": pitch.Pitch("C7"),
         },
         "Alto Saxophone": {
             "lowest": pitch.Pitch("C4"),
@@ -197,7 +242,7 @@ if __name__ == "__main__":
             "highest": pitch.Pitch("E5"),
         },
         "Clarinet": {
-            "lowest": pitch.Pitch("E3"),  # Assuming B♭ Clarinet
+            "lowest": pitch.Pitch("E3"),
             "highest": pitch.Pitch("G6"),
         },
         "Euphonium": {
@@ -268,6 +313,17 @@ if __name__ == "__main__":
     # Define the fingerings folder
     fingerings_folder = os.path.join(base_output_folder, "fingerings")
 
+    # -------------------------
+    # Helper: extract key from filename
+    # -------------------------
+    def key_from_path(p):
+        base = os.path.basename(p)
+        for key_sig in all_key_signatures:
+            safe_key = key_sig.replace("#", "sharp")
+            if base.startswith(safe_key + ".") or base.startswith(safe_key + "_"):
+                return key_sig
+        return ""
+
     for instrument_name in all_instruments:
         print("=" * 70)
         print(f"Processing instrument: {instrument_name}")
@@ -279,7 +335,7 @@ if __name__ == "__main__":
             continue
 
         instrument_lowest = settings["lowest"]
-        instrument_highest = settings["highest"]  # Retrieve highest pitch
+        instrument_highest = settings["highest"]
         instrument_folder = os.path.join(output_folder, instrument_name.replace(" ", "_"))
         os.makedirs(instrument_folder, exist_ok=True)
         print(f"Created folder: {instrument_folder}")
@@ -314,14 +370,10 @@ if __name__ == "__main__":
                 major_key_obj = key.Key(key_sig, 'major')
                 major_scale_obj = scale.MajorScale(key_sig)
 
-                # Initialize start_octave to a base value
                 start_octave = base_start_octave
-
-                # Decrease start_octave if the note is higher than the instrument's lowest
+                # Adjust start_octave so that the tonic is not above instrument_lowest
                 while pitch.Pitch(f"{major_scale_obj.tonic.name}{start_octave}") > instrument_lowest:
                     start_octave -= 1
-
-                # Increase start_octave if the first note is below the instrument's lowest
                 while True:
                     first_pitch = pitch.Pitch(f"{major_scale_obj.tonic.name}{start_octave}")
                     if first_pitch < instrument_lowest:
@@ -329,15 +381,13 @@ if __name__ == "__main__":
                     else:
                         break
 
-                # Calculate the highest note in the scale
                 max_high_octave_adjust = octave_count
                 highest_note_pitch = pitch.Pitch(f"{major_scale_obj.tonic.name}{start_octave + max_high_octave_adjust}")
 
-                # Check if the highest note exceeds the instrument's highest pitch
                 if highest_note_pitch > instrument_highest:
-                    exceeded = True  # This octave contains scales that exceed the instrument's range
+                    exceeded = True
                     print(f"Scale {key_sig} Major in octave {octave_count} exceeds the highest pitch {instrument_highest}. Skipping this scale.")
-                    continue  # Skip generating this scale
+                    continue
 
                 part = stream.Part()
                 part.insert(0, layout.SystemLayout(isNew=True))
@@ -349,7 +399,7 @@ if __name__ == "__main__":
                     scale_object=major_scale_obj,
                     start_octave=start_octave,
                     max_high_octave_adjust=max_high_octave_adjust,
-                    instrument_highest=instrument_highest,  # Pass highest pitch
+                    instrument_highest=instrument_highest,
                     instrument_name=instrument_name
                 )
 
@@ -383,79 +433,21 @@ if __name__ == "__main__":
                 print(f"Created PNG: {png_path}")
                 current_octave_paths.append(png_path)
 
-            # After processing all scales in the current octave
-            # If any scale was skipped due to exceeding the range, stop generating further octaves
-            if exceeded:
-                print(f"Reached the maximum octave for {instrument_name} where some scales exceed the highest playable pitch.")
-                # Even though some scales were skipped, proceed to generate PDF with the included scales
-                # No need to set `continue_generating` to False explicitly as we'll break out of the loop
-                # after processing the current octave
-            else:
-                print(f"All scales fit within the range for octave {octave_count} on {instrument_name}.")
-
-            # Sort the current_octave_paths based on the new all_key_signatures order
+            # -------------------------------
+            # Build two sets of PDF pages
+            # -------------------------------
+            # Sort by original order (using all_key_signatures order)
             order_index = {k: i for i, k in enumerate(all_key_signatures)}
-            def key_from_path(p):
-                base = os.path.basename(p)
-                for key_sig in all_key_signatures:
-                    safe_key = key_sig.replace("#", "sharp")
-                    if base.startswith(safe_key + ".") or base.startswith(safe_key + "_"):
-                        return key_sig
-                return ""
-            current_octave_paths.sort(key=lambda p: order_index.get(key_from_path(p), 999))
+            sorted_paths_default = sorted(current_octave_paths, key=lambda p: order_index.get(key_from_path(p), 999))
+            pages_default = build_pages(sorted_paths_default, DPI, PAGE_WIDTH, PAGE_HEIGHT, PADDING, SPACING, USABLE_WIDTH)
 
-            pages = []
-            current_page = Image.new("RGB", (PAGE_WIDTH, PAGE_HEIGHT), "white")
-            draw = ImageDraw.Draw(current_page)
-            title_font_size = 150
-            try:
-                font = ImageFont.truetype("arialbd.ttf", title_font_size)
-            except IOError:
-                try:
-                    font = ImageFont.truetype("arial.ttf", title_font_size)
-                except IOError:
-                    font = ImageFont.load_default()
-            current_y = PADDING 
-
-            for path in current_octave_paths:
-                try:
-                    with Image.open(path) as img:
-                        if img.mode in ("RGBA", "LA") or ("transparency" in img.info):
-                            background = Image.new("RGB", img.size, (255, 255, 255))
-                            if img.mode in ("RGBA", "LA"):
-                                background.paste(img, mask=img.split()[3])
-                            else:
-                                background.paste(img)
-                            final_img = background
-                        else:
-                            final_img = img.convert("RGB")
-
-                        if final_img.width > USABLE_WIDTH:
-                            ratio = USABLE_WIDTH / final_img.width
-                            new_width = int(final_img.width * ratio)
-                            new_height = int(final_img.height * ratio)
-                            final_img = final_img.resize(
-                                (new_width, new_height), 
-                                resample=Image.Resampling.LANCZOS
-                            )
-                except Exception as e:
-                    print(f"Error opening image {path}: {e}")
-                    continue
-
-                if current_y + final_img.height > PAGE_HEIGHT - PADDING:
-                    pages.append(current_page)
-                    current_page = Image.new("RGB", (PAGE_WIDTH, PAGE_HEIGHT), "white")
-                    draw = ImageDraw.Draw(current_page)
-                    current_y = PADDING
-
-                current_page.paste(final_img, (PADDING, current_y))
-                current_y += final_img.height + SPACING
-
-            if current_y > PADDING:
-                pages.append(current_page)
+            # Sort by circle-of-fifths order
+            circle_order_index = {k: i for i, k in enumerate(circle_order)}
+            sorted_paths_circle = sorted(current_octave_paths, key=lambda p: circle_order_index.get(key_from_path(p), 999))
+            pages_circle = build_pages(sorted_paths_circle, DPI, PAGE_WIDTH, PAGE_HEIGHT, PADDING, SPACING, USABLE_WIDTH)
 
             # --------------------------------------------
-            # Add Fingering Image as the Last Page
+            # Add Fingering Image as the Last Page to both PDFs
             # --------------------------------------------
             fingering_image_filename = get_fingering_image_filename(instrument_name)
             fingering_image_path = os.path.join(fingerings_folder, fingering_image_filename)
@@ -473,14 +465,14 @@ if __name__ == "__main__":
                         else:
                             fingering_final_img = fing_img.convert("RGB")
 
-                        # Resize the fingering image to fit the page if necessary
                         if fingering_final_img.width != PAGE_WIDTH or fingering_final_img.height != PAGE_HEIGHT:
                             fingering_final_img = fingering_final_img.resize(
-                                (PAGE_WIDTH, PAGE_HEIGHT), 
+                                (PAGE_WIDTH, PAGE_HEIGHT),
                                 resample=Image.Resampling.LANCZOS
                             )
 
-                        pages.append(fingering_final_img)
+                        pages_default.append(fingering_final_img)
+                        pages_circle.append(fingering_final_img)
                         print(f"Added fingering image to the pages: {fingering_image_path}")
                 except Exception as e:
                     print(f"Error processing fingering image {fingering_image_path}: {e}")
@@ -488,15 +480,18 @@ if __name__ == "__main__":
                 print(f"No fingering image found for {instrument_name} at {fingering_image_path}. Skipping fingering image.")
 
             # --------------------------------------------
-
+            # Save both PDFs
+            # --------------------------------------------
             combined_pdf_path = os.path.join(octave_folder, "combined.pdf")
-            if pages:
+            combined_pdf2_path = os.path.join(octave_folder, "combined2.pdf")
+
+            if pages_default:
                 try:
-                    pages[0].save(
+                    pages_default[0].save(
                         combined_pdf_path,
                         "PDF",
                         save_all=True,
-                        append_images=pages[1:],
+                        append_images=pages_default[1:],
                         resolution=DPI
                     )
                     print(f"PDF created at: {combined_pdf_path}")
@@ -505,18 +500,37 @@ if __name__ == "__main__":
             else:
                 print(f"No pages to save into PDF for folder {octave_folder}.")
 
-            # Copy combined.pdf to output2
-            combined_pdf_output2 = os.path.join(octave_folder_output2, "combined.pdf")
+            if pages_circle:
+                try:
+                    pages_circle[0].save(
+                        combined_pdf2_path,
+                        "PDF",
+                        save_all=True,
+                        append_images=pages_circle[1:],
+                        resolution=DPI
+                    )
+                    print(f"PDF created at: {combined_pdf2_path}")
+                except Exception as e:
+                    print(f"Error saving PDF {combined_pdf2_path}: {e}")
+            else:
+                print(f"No pages to save into PDF for folder {octave_folder} (circle-of-fifths order).")
+
+            # Copy combined PDFs to output2
             try:
-                shutil.copy(combined_pdf_path, combined_pdf_output2)
-                print(f"Copied combined PDF to: {combined_pdf_output2}")
+                shutil.copy(combined_pdf_path, os.path.join(octave_folder_output2, "combined.pdf"))
+                print(f"Copied combined PDF to output2.")
             except Exception as e:
                 print(f"Error copying combined PDF to output2: {e}")
+            try:
+                shutil.copy(combined_pdf2_path, os.path.join(octave_folder_output2, "combined2.pdf"))
+                print(f"Copied combined2 PDF to output2.")
+            except Exception as e:
+                print(f"Error copying combined2 PDF to output2: {e}")
 
             # Optionally, save each page as separate PNGs in a 'combine' subfolder
             combine_folder = os.path.join(octave_folder, "combine")
             os.makedirs(combine_folder, exist_ok=True)
-            for idx, page in enumerate(pages, start=1):
+            for idx, page in enumerate(pages_default, start=1):
                 page_filename = f"page{idx}.png"
                 page_path = os.path.join(combine_folder, page_filename)
                 try:
@@ -525,11 +539,10 @@ if __name__ == "__main__":
                 except Exception as e:
                     print(f"Error saving image {page_path}: {e}")
 
-            # Check if the current octave exceeded the highest pitch
             if exceeded:
                 print(f"Stopping further octave generation for {instrument_name} as some scales in octave {octave_count} exceed the highest playable pitch.")
-                break  # Stop generating further octaves
+                break
 
-            octave_count += 1  # Increment octave count for the next iteration
+            octave_count += 1
 
         print(f"Completed processing for {instrument_name}.\n")
