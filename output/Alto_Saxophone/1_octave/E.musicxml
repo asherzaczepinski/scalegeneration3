@@ -14,12 +14,12 @@
     </scaling>
   </defaults>
   <part-list>
-    <score-part id="Pff795bc2b4b72042715638eeb0d3359b">
+    <score-part id="P56e19f830a41447bcbc70eabab8f9c61">
       <part-name />
     </score-part>
   </part-list>
   <!--=========================== Part 1 ===========================-->
-  <part id="Pff795bc2b4b72042715638eeb0d3359b">
+  <part id="P56e19f830a41447bcbc70eabab8f9c61">
     <!--========================= Measure 0 ==========================-->
     <measure implicit="no" number="0">
       <attributes>
@@ -33,11 +33,6 @@
           <line>2</line>
         </clef>
       </attributes>
-      <direction placement="above">
-        <direction-type>
-          <words>Alto Saxophone - E Major - 1 octave</words>
-        </direction-type>
-      </direction>
       <note>
         <pitch>
           <step>E</step>

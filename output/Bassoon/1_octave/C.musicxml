@@ -14,12 +14,12 @@
     </scaling>
   </defaults>
   <part-list>
-    <score-part id="P8d987a73c1b32bc552d6f1a79cbbb240">
+    <score-part id="P737a627bb575b8eb4d32f0c8920d5bd5">
       <part-name />
     </score-part>
   </part-list>
   <!--=========================== Part 1 ===========================-->
-  <part id="P8d987a73c1b32bc552d6f1a79cbbb240">
+  <part id="P737a627bb575b8eb4d32f0c8920d5bd5">
     <!--========================= Measure 0 ==========================-->
     <measure implicit="no" number="0">
       <attributes>
@@ -33,11 +33,6 @@
           <line>4</line>
         </clef>
       </attributes>
-      <direction placement="above">
-        <direction-type>
-          <words>Bassoon - C Major - 1 octave</words>
-        </direction-type>
-      </direction>
       <note>
         <pitch>
           <step>C</step>

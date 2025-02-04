@@ -14,12 +14,12 @@
     </scaling>
   </defaults>
   <part-list>
-    <score-part id="Pb41e3e955c110acbbc47bff585f24504">
+    <score-part id="P94c471107c3f470372088b4d6839a342">
       <part-name />
     </score-part>
   </part-list>
   <!--=========================== Part 1 ===========================-->
-  <part id="Pb41e3e955c110acbbc47bff585f24504">
+  <part id="P94c471107c3f470372088b4d6839a342">
     <!--========================= Measure 0 ==========================-->
     <measure implicit="no" number="0">
       <attributes>
@@ -33,11 +33,6 @@
           <line>2</line>
         </clef>
       </attributes>
-      <direction placement="above">
-        <direction-type>
-          <words>Bass Clarinet - F Major - 3 octaves</words>
-        </direction-type>
-      </direction>
       <note>
         <pitch>
           <step>F</step>

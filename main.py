@@ -59,6 +59,7 @@ def determine_clef(instrument_name):
     return instrument_map.get(instrument_name, "TrebleClef")
 
 def create_scale_measures(title_text, scale_object, start_octave, max_high_octave_adjust, instrument_highest, instrument_name="Violin"):
+    """Generate the scale measures without any title text."""
     measures_stream = stream.Stream()
     lower_pitch = f"{scale_object.tonic.name}{start_octave}"
     upper_pitch = f"{scale_object.tonic.name}{start_octave + max_high_octave_adjust}"
@@ -77,10 +78,7 @@ def create_scale_measures(title_text, scale_object, start_octave, max_high_octav
             if current_measure.notes:
                 measures_stream.append(current_measure)
             m_whole = stream.Measure()
-            if i == 0:
-                txt = expressions.TextExpression(title_text)
-                txt.placement = 'above'
-                m_whole.insert(0, txt)
+            # (Title text removed)
             n = note.Note(p)
             n.duration = duration.Duration('whole')
             fix_enharmonic_spelling(n)
@@ -93,10 +91,7 @@ def create_scale_measures(title_text, scale_object, start_octave, max_high_octav
             if current_measure.notes:
                 measures_stream.append(current_measure)
             current_measure = stream.Measure()
-            if i == 0:
-                txt = expressions.TextExpression(title_text)
-                txt.placement = 'above'
-                current_measure.insert(0, txt)
+            # (Title text removed)
             n = note.Note(p)
             n.duration = duration.Duration('quarter')
             fix_enharmonic_spelling(n)
@@ -124,11 +119,15 @@ def get_fingering_image_filename(instrument_name):
 
 def build_pages(image_paths, DPI, PAGE_WIDTH, PAGE_HEIGHT, PADDING, SPACING, USABLE_WIDTH):
     """Given a list of image file paths (already sorted in the desired order),
-    build and return a list of page images."""
+    build and return a list of page images.
+    
+    An extra 80px is added to the top of each page.
+    """
     pages = []
     current_page = Image.new("RGB", (PAGE_WIDTH, PAGE_HEIGHT), "white")
     draw = ImageDraw.Draw(current_page)
-    current_y = PADDING
+    # Start below the top margin plus an extra 80px:
+    current_y = PADDING + 60
 
     for path in image_paths:
         try:
@@ -160,14 +159,25 @@ def build_pages(image_paths, DPI, PAGE_WIDTH, PAGE_HEIGHT, PADDING, SPACING, USA
             pages.append(current_page)
             current_page = Image.new("RGB", (PAGE_WIDTH, PAGE_HEIGHT), "white")
             draw = ImageDraw.Draw(current_page)
-            current_y = PADDING
+            current_y = PADDING + 80  # Reset with extra top margin
 
         current_page.paste(final_img, (PADDING, current_y))
         current_y += final_img.height + SPACING
 
-    if current_y > PADDING:
+    if current_y > PADDING + 80:
         pages.append(current_page)
     return pages
+
+# -------------------------
+# Helper: extract key from filename
+# -------------------------
+def key_from_path(p):
+    base = os.path.basename(p)
+    for key_sig in ALL_KEY_SIGNATURES:
+        safe_key = key_sig.replace("#", "sharp")
+        if base.startswith(safe_key + ".") or base.startswith(safe_key + "_"):
+            return key_sig
+    return ""
 
 if __name__ == "__main__":
     # ------------------------------------------------------------------------
@@ -194,8 +204,8 @@ if __name__ == "__main__":
     # ------------------------------------------------------------------------
     # Key Signature Orders
     # ------------------------------------------------------------------------
-    # This is the original order:
-    all_key_signatures = [
+    # Original list kept here for possible later reference (not used for generation)
+    ALL_KEY_SIGNATURES = [
         "C",    # No sharps/flats
         "G",    # 1 Sharp
         "F",    # 1 Flat
@@ -209,7 +219,7 @@ if __name__ == "__main__":
         "Db",   # 5 Flats
         "F#"    # 6 Sharps
     ]
-    # Circle-of-Fifths order:
+    # Circle-of-Fifths order is now used for generation:
     circle_order = ["C", "G", "D", "A", "E", "B", "F#", "Db", "Ab", "Eb", "Bb", "F"]
 
     instrument_settings = {
@@ -313,17 +323,6 @@ if __name__ == "__main__":
     # Define the fingerings folder
     fingerings_folder = os.path.join(base_output_folder, "fingerings")
 
-    # -------------------------
-    # Helper: extract key from filename
-    # -------------------------
-    def key_from_path(p):
-        base = os.path.basename(p)
-        for key_sig in all_key_signatures:
-            safe_key = key_sig.replace("#", "sharp")
-            if base.startswith(safe_key + ".") or base.startswith(safe_key + "_"):
-                return key_sig
-        return ""
-
     for instrument_name in all_instruments:
         print("=" * 70)
         print(f"Processing instrument: {instrument_name}")
@@ -366,7 +365,8 @@ if __name__ == "__main__":
             current_octave_paths = []
             exceeded = False  # Flag to check if any scale exceeds the highest pitch
 
-            for key_sig in all_key_signatures:
+            # Iterate in circle-of-fifths order
+            for key_sig in circle_order:
                 major_key_obj = key.Key(key_sig, 'major')
                 major_scale_obj = scale.MajorScale(key_sig)
 
@@ -393,9 +393,9 @@ if __name__ == "__main__":
                 part.insert(0, layout.SystemLayout(isNew=True))
                 part.insert(0, getattr(clef, selected_clef)())
 
-                title_text = f"{instrument_name} - {key_sig} Major - {octave_count} octave{'s' if octave_count > 1 else ''}"
+                # Pass an empty string for title_text so that no title is rendered
                 scale_measures = create_scale_measures(
-                    title_text=title_text,
+                    title_text="",
                     scale_object=major_scale_obj,
                     start_octave=start_octave,
                     max_high_octave_adjust=max_high_octave_adjust,
@@ -434,20 +434,14 @@ if __name__ == "__main__":
                 current_octave_paths.append(png_path)
 
             # -------------------------------
-            # Build two sets of PDF pages
+            # Build PDF pages (in circle-of-fifths order)
             # -------------------------------
-            # Sort by original order (using all_key_signatures order)
-            order_index = {k: i for i, k in enumerate(all_key_signatures)}
-            sorted_paths_default = sorted(current_octave_paths, key=lambda p: order_index.get(key_from_path(p), 999))
-            pages_default = build_pages(sorted_paths_default, DPI, PAGE_WIDTH, PAGE_HEIGHT, PADDING, SPACING, USABLE_WIDTH)
-
-            # Sort by circle-of-fifths order
             circle_order_index = {k: i for i, k in enumerate(circle_order)}
-            sorted_paths_circle = sorted(current_octave_paths, key=lambda p: circle_order_index.get(key_from_path(p), 999))
-            pages_circle = build_pages(sorted_paths_circle, DPI, PAGE_WIDTH, PAGE_HEIGHT, PADDING, SPACING, USABLE_WIDTH)
+            sorted_paths = sorted(current_octave_paths, key=lambda p: circle_order_index.get(key_from_path(p), 999))
+            pages = build_pages(sorted_paths, DPI, PAGE_WIDTH, PAGE_HEIGHT, PADDING, SPACING, USABLE_WIDTH)
 
             # --------------------------------------------
-            # Add Fingering Image as the Last Page to both PDFs
+            # Add Fingering Image as the Last Page
             # --------------------------------------------
             fingering_image_filename = get_fingering_image_filename(instrument_name)
             fingering_image_path = os.path.join(fingerings_folder, fingering_image_filename)
@@ -471,8 +465,7 @@ if __name__ == "__main__":
                                 resample=Image.Resampling.LANCZOS
                             )
 
-                        pages_default.append(fingering_final_img)
-                        pages_circle.append(fingering_final_img)
+                        pages.append(fingering_final_img)
                         print(f"Added fingering image to the pages: {fingering_image_path}")
                 except Exception as e:
                     print(f"Error processing fingering image {fingering_image_path}: {e}")
@@ -480,18 +473,16 @@ if __name__ == "__main__":
                 print(f"No fingering image found for {instrument_name} at {fingering_image_path}. Skipping fingering image.")
 
             # --------------------------------------------
-            # Save both PDFs
+            # Save PDF
             # --------------------------------------------
             combined_pdf_path = os.path.join(octave_folder, "combined.pdf")
-            combined_pdf2_path = os.path.join(octave_folder, "combined2.pdf")
-
-            if pages_default:
+            if pages:
                 try:
-                    pages_default[0].save(
+                    pages[0].save(
                         combined_pdf_path,
                         "PDF",
                         save_all=True,
-                        append_images=pages_default[1:],
+                        append_images=pages[1:],
                         resolution=DPI
                     )
                     print(f"PDF created at: {combined_pdf_path}")
@@ -500,37 +491,10 @@ if __name__ == "__main__":
             else:
                 print(f"No pages to save into PDF for folder {octave_folder}.")
 
-            if pages_circle:
-                try:
-                    pages_circle[0].save(
-                        combined_pdf2_path,
-                        "PDF",
-                        save_all=True,
-                        append_images=pages_circle[1:],
-                        resolution=DPI
-                    )
-                    print(f"PDF created at: {combined_pdf2_path}")
-                except Exception as e:
-                    print(f"Error saving PDF {combined_pdf2_path}: {e}")
-            else:
-                print(f"No pages to save into PDF for folder {octave_folder} (circle-of-fifths order).")
-
-            # Copy combined PDFs to output2
-            try:
-                shutil.copy(combined_pdf_path, os.path.join(octave_folder_output2, "combined.pdf"))
-                print(f"Copied combined PDF to output2.")
-            except Exception as e:
-                print(f"Error copying combined PDF to output2: {e}")
-            try:
-                shutil.copy(combined_pdf2_path, os.path.join(octave_folder_output2, "combined2.pdf"))
-                print(f"Copied combined2 PDF to output2.")
-            except Exception as e:
-                print(f"Error copying combined2 PDF to output2: {e}")
-
             # Optionally, save each page as separate PNGs in a 'combine' subfolder
             combine_folder = os.path.join(octave_folder, "combine")
             os.makedirs(combine_folder, exist_ok=True)
-            for idx, page in enumerate(pages_default, start=1):
+            for idx, page in enumerate(pages, start=1):
                 page_filename = f"page{idx}.png"
                 page_path = os.path.join(combine_folder, page_filename)
                 try:
@@ -538,6 +502,13 @@ if __name__ == "__main__":
                     print(f"Saved {page_path}")
                 except Exception as e:
                     print(f"Error saving image {page_path}: {e}")
+
+            # Copy combined PDF to output2
+            try:
+                shutil.copy(combined_pdf_path, os.path.join(octave_folder_output2, "combined.pdf"))
+                print(f"Copied combined PDF to output2.")
+            except Exception as e:
+                print(f"Error copying combined PDF to output2: {e}")
 
             if exceeded:
                 print(f"Stopping further octave generation for {instrument_name} as some scales in octave {octave_count} exceed the highest playable pitch.")

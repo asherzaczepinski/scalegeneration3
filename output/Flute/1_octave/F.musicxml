@@ -14,12 +14,12 @@
     </scaling>
   </defaults>
   <part-list>
-    <score-part id="P27e02a59d5da0a885afb53332abe8303">
+    <score-part id="P5a5b3880950b19c6d93238dda65a7613">
       <part-name />
     </score-part>
   </part-list>
   <!--=========================== Part 1 ===========================-->
-  <part id="P27e02a59d5da0a885afb53332abe8303">
+  <part id="P5a5b3880950b19c6d93238dda65a7613">
     <!--========================= Measure 0 ==========================-->
     <measure implicit="no" number="0">
       <attributes>
@@ -33,11 +33,6 @@
           <line>2</line>
         </clef>
       </attributes>
-      <direction placement="above">
-        <direction-type>
-          <words>Flute - F Major - 1 octave</words>
-        </direction-type>
-      </direction>
       <note>
         <pitch>
           <step>F</step>

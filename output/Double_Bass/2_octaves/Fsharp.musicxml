@@ -14,12 +14,12 @@
     </scaling>
   </defaults>
   <part-list>
-    <score-part id="P7e8b5bcaf50d93419de970c0c3e76689">
+    <score-part id="P19f5a10461b2abf25303dd3d6500e5ad">
       <part-name />
     </score-part>
   </part-list>
   <!--=========================== Part 1 ===========================-->
-  <part id="P7e8b5bcaf50d93419de970c0c3e76689">
+  <part id="P19f5a10461b2abf25303dd3d6500e5ad">
     <!--========================= Measure 0 ==========================-->
     <measure implicit="no" number="0">
       <attributes>
@@ -33,11 +33,6 @@
           <line>4</line>
         </clef>
       </attributes>
-      <direction placement="above">
-        <direction-type>
-          <words>Double Bass - F# Major - 2 octaves</words>
-        </direction-type>
-      </direction>
       <note>
         <pitch>
           <step>F</step>

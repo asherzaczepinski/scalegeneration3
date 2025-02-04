@@ -14,12 +14,12 @@
     </scaling>
   </defaults>
   <part-list>
-    <score-part id="P303017b7dddd9fe0be99acc5332cd454">
+    <score-part id="Pbc274196188dcb1946b9a1a1b6cfa42a">
       <part-name />
     </score-part>
   </part-list>
   <!--=========================== Part 1 ===========================-->
-  <part id="P303017b7dddd9fe0be99acc5332cd454">
+  <part id="Pbc274196188dcb1946b9a1a1b6cfa42a">
     <!--========================= Measure 0 ==========================-->
     <measure implicit="no" number="0">
       <attributes>
@@ -33,11 +33,6 @@
           <line>4</line>
         </clef>
       </attributes>
-      <direction placement="above">
-        <direction-type>
-          <words>Euphonium - Db Major - 1 octave</words>
-        </direction-type>
-      </direction>
       <note>
         <pitch>
           <step>D</step>

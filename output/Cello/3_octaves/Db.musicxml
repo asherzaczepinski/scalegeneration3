@@ -14,12 +14,12 @@
     </scaling>
   </defaults>
   <part-list>
-    <score-part id="P649efdb1b5f1a68ca8f94d51e8a3bcad">
+    <score-part id="Pf0d4a630b09d9e27741f74a25d9bb991">
       <part-name />
     </score-part>
   </part-list>
   <!--=========================== Part 1 ===========================-->
-  <part id="P649efdb1b5f1a68ca8f94d51e8a3bcad">
+  <part id="Pf0d4a630b09d9e27741f74a25d9bb991">
     <!--========================= Measure 0 ==========================-->
     <measure implicit="no" number="0">
       <attributes>
@@ -33,11 +33,6 @@
           <line>4</line>
         </clef>
       </attributes>
-      <direction placement="above">
-        <direction-type>
-          <words>Cello - Db Major - 3 octaves</words>
-        </direction-type>
-      </direction>
       <note>
         <pitch>
           <step>D</step>

@@ -14,12 +14,12 @@
     </scaling>
   </defaults>
   <part-list>
-    <score-part id="P3ea529c13cb20f7c9cbcb384d17d104e">
+    <score-part id="Pf3cfa890a46f98ad0c6df6f1b2336873">
       <part-name />
     </score-part>
   </part-list>
   <!--=========================== Part 1 ===========================-->
-  <part id="P3ea529c13cb20f7c9cbcb384d17d104e">
+  <part id="Pf3cfa890a46f98ad0c6df6f1b2336873">
     <!--========================= Measure 0 ==========================-->
     <measure implicit="no" number="0">
       <attributes>
@@ -33,11 +33,6 @@
           <line>2</line>
         </clef>
       </attributes>
-      <direction placement="above">
-        <direction-type>
-          <words>Violin - B Major - 1 octave</words>
-        </direction-type>
-      </direction>
       <note>
         <pitch>
           <step>B</step>

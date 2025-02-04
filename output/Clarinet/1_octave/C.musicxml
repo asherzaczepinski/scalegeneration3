@@ -14,12 +14,12 @@
     </scaling>
   </defaults>
   <part-list>
-    <score-part id="P3157471642b43a46b98c91e1760f146e">
+    <score-part id="Pbc61d5f4f7ec12a6cb17043e9c226828">
       <part-name />
     </score-part>
   </part-list>
   <!--=========================== Part 1 ===========================-->
-  <part id="P3157471642b43a46b98c91e1760f146e">
+  <part id="Pbc61d5f4f7ec12a6cb17043e9c226828">
     <!--========================= Measure 0 ==========================-->
     <measure implicit="no" number="0">
       <attributes>
@@ -33,11 +33,6 @@
           <line>2</line>
         </clef>
       </attributes>
-      <direction placement="above">
-        <direction-type>
-          <words>Clarinet - C Major - 1 octave</words>
-        </direction-type>
-      </direction>
       <note>
         <pitch>
           <step>C</step>

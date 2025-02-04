@@ -14,12 +14,12 @@
     </scaling>
   </defaults>
   <part-list>
-    <score-part id="P79791b27186054ec8cb6e05419bfbcce">
+    <score-part id="P3328d80ec97fa517f6a4395780a7fca8">
       <part-name />
     </score-part>
   </part-list>
   <!--=========================== Part 1 ===========================-->
-  <part id="P79791b27186054ec8cb6e05419bfbcce">
+  <part id="P3328d80ec97fa517f6a4395780a7fca8">
     <!--========================= Measure 0 ==========================-->
     <measure implicit="no" number="0">
       <attributes>
@@ -33,11 +33,6 @@
           <line>4</line>
         </clef>
       </attributes>
-      <direction placement="above">
-        <direction-type>
-          <words>Double Bass - G Major - 1 octave</words>
-        </direction-type>
-      </direction>
       <note>
         <pitch>
           <step>G</step>

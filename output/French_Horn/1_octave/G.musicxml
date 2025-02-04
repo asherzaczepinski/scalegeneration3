@@ -14,12 +14,12 @@
     </scaling>
   </defaults>
   <part-list>
-    <score-part id="Pec1cc16b8caf1e47315e8f6ccd7d0ba4">
+    <score-part id="Pe853b7194cddd2a9a278bfbb823524d6">
       <part-name />
     </score-part>
   </part-list>
   <!--=========================== Part 1 ===========================-->
-  <part id="Pec1cc16b8caf1e47315e8f6ccd7d0ba4">
+  <part id="Pe853b7194cddd2a9a278bfbb823524d6">
     <!--========================= Measure 0 ==========================-->
     <measure implicit="no" number="0">
       <attributes>
@@ -33,11 +33,6 @@
           <line>2</line>
         </clef>
       </attributes>
-      <direction placement="above">
-        <direction-type>
-          <words>French Horn - G Major - 1 octave</words>
-        </direction-type>
-      </direction>
       <note>
         <pitch>
           <step>G</step>
